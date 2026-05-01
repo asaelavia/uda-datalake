@@ -1,0 +1,63 @@
+21:11:59  INFO      Loading all GitTables tables from cache ...
+21:12:00  INFO        Loading tables: 0/421179 (0%)
+21:28:23  INFO        Loading tables: 42117/421179 (10%)
+21:44:21  INFO        Loading tables: 84234/421179 (20%)
+22:05:06  INFO        Loading tables: 126351/421179 (30%)
+22:29:17  INFO        Loading tables: 168468/421179 (40%)
+22:50:22  INFO        Loading tables: 210585/421179 (50%)
+23:06:05  INFO        Loading tables: 252702/421179 (60%)
+23:13:05  INFO        Loading tables: 294819/421179 (70%)
+23:20:00  INFO        Loading tables: 336936/421179 (80%)
+12:21:24  INFO        Loading tables: 379053/421179 (90%)
+12:28:16  INFO        Loading tables: 421170/421179 (100%)
+12:28:16  INFO      Loaded 421179 GitTables tables
+12:28:16  INFO      Loading Pima Diabetes (OpenML id=37) ...
+12:28:16  INFO      Pima Diabetes: 768 rows, positive_rate=0.349, cols=['preg', 'plas', 'pres', 'skin', 'insu', 'mass', 'pedi', 'age']
+12:28:16  INFO      Target split: 614 oracle-train / 154 test
+12:28:16  INFO      Loading encoder: all-MiniLM-L6-v2
+12:28:16  INFO      Use pytorch device_name: cpu
+12:28:16  INFO      Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+12:28:17  INFO      HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/modules.json "HTTP/1.1 307 Temporary Redirect"
+12:28:17  INFO      HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/c9745ed1d9f207416be6d2e6f8de32d1f16199bf/modules.json "HTTP/1.1 200 OK"
+12:28:18  INFO      HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/config_sentence_transformers.json "HTTP/1.1 307 Temporary Redirect"
+12:28:18  INFO      HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/c9745ed1d9f207416be6d2e6f8de32d1f16199bf/config_sentence_transformers.json "HTTP/1.1 200 OK"
+12:28:18  INFO      HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/config_sentence_transformers.json "HTTP/1.1 307 Temporary Redirect"
+12:28:18  INFO      HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/c9745ed1d9f207416be6d2e6f8de32d1f16199bf/config_sentence_transformers.json "HTTP/1.1 200 OK"
+12:28:18  INFO      HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/README.md "HTTP/1.1 307 Temporary Redirect"
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+12:28:18  WARNING   Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+12:28:18  INFO      HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/c9745ed1d9f207416be6d2e6f8de32d1f16199bf/README.md "HTTP/1.1 200 OK"
+12:28:18  INFO      HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/modules.json "HTTP/1.1 307 Temporary Redirect"
+12:28:18  INFO      HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/c9745ed1d9f207416be6d2e6f8de32d1f16199bf/modules.json "HTTP/1.1 200 OK"
+12:28:18  INFO      HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/sentence_bert_config.json "HTTP/1.1 307 Temporary Redirect"
+12:28:18  INFO      HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/c9745ed1d9f207416be6d2e6f8de32d1f16199bf/sentence_bert_config.json "HTTP/1.1 200 OK"
+12:28:19  INFO      HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/adapter_config.json "HTTP/1.1 404 Not Found"
+12:28:19  INFO      HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+12:28:19  INFO      HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/c9745ed1d9f207416be6d2e6f8de32d1f16199bf/config.json "HTTP/1.1 200 OK"
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|##########| 103/103 [00:00<00:00, 3793.55it/s]
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  | 
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  | 
+
+[3mNotes:
+- UNEXPECTED[3m	:can be ignored when loading from different task/architecture; not ok if you expect identical arch.[0m
+12:28:19  INFO      HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+12:28:19  INFO      HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/c9745ed1d9f207416be6d2e6f8de32d1f16199bf/config.json "HTTP/1.1 200 OK"
+12:28:19  INFO      HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+12:28:19  INFO      HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/c9745ed1d9f207416be6d2e6f8de32d1f16199bf/tokenizer_config.json "HTTP/1.1 200 OK"
+12:28:20  INFO      HTTP Request: GET https://huggingface.co/api/models/sentence-transformers/all-MiniLM-L6-v2/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+12:28:20  INFO      HTTP Request: GET https://huggingface.co/api/models/sentence-transformers/all-MiniLM-L6-v2/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+12:28:20  INFO      HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/1_Pooling/config.json "HTTP/1.1 307 Temporary Redirect"
+12:28:20  INFO      HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/c9745ed1d9f207416be6d2e6f8de32d1f16199bf/1_Pooling%2Fconfig.json "HTTP/1.1 200 OK"
+12:28:20  INFO      HTTP Request: GET https://huggingface.co/api/models/sentence-transformers/all-MiniLM-L6-v2 "HTTP/1.1 200 OK"
+12:28:20  INFO      === Source Repurposing: scanning 421179 GitTables for 'diabetes diagnosis positive' ===
+12:28:20  INFO      LLM expansion cache hit for 'diabetes diagnosis positive'
+12:28:20  INFO      Concepts after deduplication: 53
+12:28:22  INFO        Repurposing scan: 0/421179 tables (0%) — 0 candidates so far
+12:40:32  INFO        Repurposing scan: 21058/421179 tables (5%) — 105 candidates so far
+12:56:16  INFO        Repurposing scan: 42116/421179 tables (10%) — 166 candidates so far
+13:10:06  INFO        Repurposing scan: 63174/421179 tables (15%) — 245 candidates so far
+13:21:47  INFO        Repurposing scan: 84232/421179 tables (20%) — 380 candidates so far
+13:33:07  INFO        Repurposing scan: 105290/421179 tables (25%) — 593 candidates so far
+13:42:22  INFO        Repurposing scan: 126348/421179 tables (30%) — 643 candidates so far

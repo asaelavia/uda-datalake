@@ -1,0 +1,2 @@
+repurpose_yield,discovery_quality,alignment_density,label_shift,feature_overlap,pas_score,spa_score,cslp_score,lcc_score,pas_loose_score,pca_pas_score,source_consistency,top1_score,overall,n_sources,n_lake_tables,mode
+0.16056452427109658,0.36222195681341557,0.6666666666666667,0.8405376833776073,0.27406553728907895,6.998127610803665e-17,0.8673276224772134,0.5,0.5,0.5,0.5,0.9893553715614033,0.37013871574703555,6.998127610803665e-17,7,421179,true

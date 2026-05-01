@@ -1,0 +1,16 @@
+data/gittables/
+data/govdata/
+data/wikitables/
+data/openml_lake/
+data/KaggleV2-May-2016.csv
+data/cdc_obesity_county.csv
+data/NY-Housing/
+data/stream_ckpt_*.json
+data/repurpose_done_*.json
+data/repurpose_done_*.json.bak
+data/col_name_index/
+__pycache__/
+*.pyc
+*.pyo
+.env
+logs/

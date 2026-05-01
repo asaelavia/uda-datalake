@@ -1,0 +1,14 @@
+feature,mean_abs_shap
+oldpeak,0.712712
+age,0.56802297
+fasting_blood_sugar,0.07862192
+sex,0.0
+chest,0.0
+serum_cholestoral,0.0
+resting_blood_pressure,0.0
+maximum_heart_rate_achieved,0.0
+resting_electrocardiographic_results,0.0
+exercise_induced_angina,0.0
+slope,0.0
+number_of_major_vessels,0.0
+thal,0.0

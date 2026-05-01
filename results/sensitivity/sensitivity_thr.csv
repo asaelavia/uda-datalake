@@ -1,0 +1,10 @@
+target,threshold,best_level,auc
+adult,0.55,level2,0.7667515191659475
+adult,0.65,level2,0.7667515191659475
+adult,0.7,level2,0.7667515191659475
+credit,0.55,source_ensemble,0.5
+credit,0.65,source_ensemble,0.5
+credit,0.7,level5,0.604047619047619
+heart,0.55,level5,0.6194444444444445
+heart,0.65,level5,0.6194444444444445
+heart,0.7,level0,0.6833333333333333
