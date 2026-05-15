@@ -1,0 +1,11 @@
+{
+    "z_attrition_rate_tables_licensed_train":              "Attrition",
+    "z_attrition_rate_tables_licensed_test_2":             "Attrition",
+    "z_attrition_rate_tables_licensed_test-data":          "Attrition",
+    "z_lead_time_tables_licensed_hotel_bookings":          "is_canceled",
+    "z_lead_time_tables_licensed_test_388":                "is_canceled",
+    "8427f50a21ae03cb9d77bde9511b1abf_userdata_1":         "Active",
+    "z_id_tables_licensed_8427f50a21ae03cb9d77bde9511b1abf_userdata_1": "Active",
+    "z_parent_tables_licensed_culture500_data_preprocessed": "Customer",
+    "z_whole_tables_licensed_culture500_data_preprocessed":  "Customer"
+}

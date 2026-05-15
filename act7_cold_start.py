@@ -60,8 +60,6 @@ from act4_openml_lake import (
     _load_adult_target,
     _load_nyhouse_target,
     _load_openml_target,
-    _make_quantile_normalizer,
-    _apply_quantile_norm,
 )
 from act5_gittables_lake import (
     REPURPOSE_THRESHOLD,
@@ -309,11 +307,8 @@ def run_experiment(target_name: str) -> None:
         dist_threshold=DIST_THRESHOLD,
     )
 
-    qt, num_cols       = _make_quantile_normalizer(target_features)
-    aligned            = {k: _apply_quantile_norm(v, qt, num_cols) for k, v in aligned.items()}
-    target_test_norm   = _apply_quantile_norm(target_features, qt, num_cols)
-    target_train_norm  = _apply_quantile_norm(target_train_df.drop(columns=[LABEL_COL]), qt, num_cols)
-    target_train_norm[LABEL_COL] = target_train_df[LABEL_COL].values
+    target_test_norm  = target_features
+    target_train_norm = target_train_df
 
     # ------------------------------------------------------------------ #
     # Cold-start simulation

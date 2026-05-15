@@ -1,0 +1,7 @@
+{
+    "z_attrition_rate_tables_licensed_train":     "Attrition",
+    "z_attrition_rate_tables_licensed_test_2":    "Attrition",
+    "z_attrition_rate_tables_licensed_test-data": "Attrition",
+    "z_lead_time_tables_licensed_hotel_bookings": "is_canceled",
+    "z_lead_time_tables_licensed_test_388":       "is_canceled"
+}

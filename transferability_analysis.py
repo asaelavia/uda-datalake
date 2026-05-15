@@ -95,7 +95,8 @@ def compile_table(targets: list[str]) -> pd.DataFrame:
             for component in ["overall", "repurpose_yield", "discovery_quality",
                                "alignment_density", "label_shift", "feature_overlap",
                                "pas_score", "spa_score", "cslp_score", "lcc_score",
-                               "pas_loose_score", "pca_pas_score",
+                               "pas_loose_score", "pca_pas_score", "zscore_copas_score",
+                               "npas_score", "tsc_score",
                                "source_consistency", "top1_score", "n_sources"]:
                 row[f"{prefix}{component}"] = src.get(component, float("nan"))
 
@@ -111,10 +112,11 @@ def print_correlations(df: pd.DataFrame) -> None:
         ("best_uda_auc",      "Best UDA AUC       (absolute)"),
     ]
 
-    score_cols = ["true_overall", "true_spa_score", "true_pas_score",
+    score_cols = ["true_overall", "true_spa_score", "true_pas_score", "true_zscore_copas_score",
+                  "true_npas_score", "true_tsc_score",
                   "fast_overall", "fast_spa_score", "fast_pas_score",
                   "fast_cslp_score", "fast_lcc_score", "fast_pas_loose_score",
-                  "fast_pca_pas_score",
+                  "fast_pca_pas_score", "fast_zscore_copas_score",
                   "true_repurpose_yield", "true_discovery_quality", "true_top1_score",
                   "true_feature_overlap", "true_alignment_density",
                   "true_label_shift", "true_source_consistency"]
@@ -180,17 +182,25 @@ def main() -> None:
     parser.add_argument("--targets", nargs="+",
                         default=["adult", "heart", "credit", "diabetes", "bank",
                                  "turnover", "noshow", "nyhouse", "obesity",
-                                 "titanic", "stroke"])
+                                 "titanic", "stroke", "churn"])
+    parser.add_argument("--exclude", nargs="+", default=[],
+                        help="Targets to exclude from analysis (e.g. --exclude churn)")
+    parser.add_argument("--suffix", default="",
+                        help="Suffix appended to output filenames (e.g. --suffix _no_churn)")
     args = parser.parse_args()
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    targets = [t for t in args.targets if t not in args.exclude]
 
-    df = compile_table(args.targets)
+    out_dir = OUTPUT_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    df = compile_table(targets)
     if df.empty:
         logger.error("No data found. Run act5_gittables_lake.py for at least one target first.")
         return
 
-    out_csv = OUTPUT_DIR / "correlation_table.csv"
+    sfx = args.suffix
+    out_csv = out_dir / f"correlation_table{sfx}.csv"
     df.to_csv(out_csv, index=False)
     logger.info("Saved: %s", out_csv)
 
@@ -210,7 +220,7 @@ def main() -> None:
         xlabel="Transferability score (true)",
         ylabel="Oracle gap closed",
         title="Lake transferability → oracle gap closed",
-        path=OUTPUT_DIR / "score_vs_transfer.png",
+        path=out_dir / f"score_vs_transfer{sfx}.png",
     )
 
     # Scatter: fast vs true overall
@@ -222,7 +232,7 @@ def main() -> None:
             xlabel="Transferability score (fast)",
             ylabel="Transferability score (true)",
             title="Fast score vs true score",
-            path=OUTPUT_DIR / "fast_vs_true.png",
+            path=out_dir / f"fast_vs_true{sfx}.png",
         )
 
 

@@ -2,8 +2,12 @@ data/gittables/
 data/govdata/
 data/wikitables/
 data/openml_lake/
+data/act4/
+data/2018/
 data/KaggleV2-May-2016.csv
 data/cdc_obesity_county.csv
+data/cdc_places_obesity.csv
+data/stroke.csv
 data/NY-Housing/
 data/stream_ckpt_*.json
 data/repurpose_done_*.json
@@ -14,3 +18,6 @@ __pycache__/
 *.pyo
 .env
 logs/
+.idea/
+*.pdf
+

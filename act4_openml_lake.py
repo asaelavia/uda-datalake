@@ -748,7 +748,7 @@ def run_act4(
     # --- Step 2: Schema Alignment ---
     logger.info("=== Step 2: Schema Alignment ===")
     lake_top_k = {k: lake[k] for k in top_k_scores}
-    aligned = schema_alignment.align_all(
+    aligned, _col_mappings = schema_alignment.align_all(
         lake=lake_top_k,
         target=target_features,
         discovery_scores=top_k_scores,
@@ -757,16 +757,8 @@ def run_act4(
         dist_threshold=DIST_THRESHOLD,
     )
 
-    # Value normalisation — quantile transform fitted on unlabeled target features.
-    # Maps each column's full CDF to Uniform[0,1], removing marginal covariate
-    # shift far more aggressively than min-max scaling.
-    qt, num_cols = _make_quantile_normalizer(target_features)
-    aligned              = {k: _apply_quantile_norm(v, qt, num_cols) for k, v in aligned.items()}
-    target_features_norm = _apply_quantile_norm(target_features, qt, num_cols)
-    target_train_norm    = _apply_quantile_norm(
-        target_train_df.drop(columns=[LABEL_COL]), qt, num_cols
-    )
-    target_train_norm[LABEL_COL] = target_train_df[LABEL_COL].values
+    target_features_norm = target_features
+    target_train_norm    = target_train_df
 
     # --- Optional: load unlabeled GitTables features for domain adaptation ---
     unlabeled_features = gittables_lake.load_gittables_features(

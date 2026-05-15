@@ -37,6 +37,7 @@ class AdaptationResult:
     predictions: np.ndarray
     probabilities: Optional[np.ndarray] = None
     model: Optional[object] = field(default=None, repr=False)
+    eval_mask: Optional[np.ndarray] = None  # boolean mask — only these rows used for metrics
 
 
 def _make_xgb(**kwargs) -> XGBClassifier:
@@ -707,17 +708,20 @@ class _DANNNet:
 class _DANNWrapper:
     """Wraps a trained DANN _Net to provide predict_proba / predict interfaces."""
 
-    def __init__(self, net, classes_: np.ndarray, columns: list[str]) -> None:
+    def __init__(self, net, classes_: np.ndarray, columns: list[str], scaler=None) -> None:
         self._net = net
         self.classes_ = classes_
         self._columns = columns
+        self._scaler = scaler
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         import torch
         self._net.eval()
-        X_sub = X[self._columns].fillna(0)
+        X_sub = X[self._columns].fillna(0).values.astype(np.float32)
+        if self._scaler is not None:
+            X_sub = self._scaler.transform(X_sub).astype(np.float32)
         with torch.no_grad():
-            x_t = torch.tensor(X_sub.values.astype(np.float32))
+            x_t = torch.tensor(X_sub)
             label_out, _ = self._net(x_t, lambda_=0.0)
             proba = torch.softmax(label_out, dim=1).numpy()
         return proba
@@ -776,13 +780,24 @@ def run_level5(
 
     X_src_clean, target_clean = _domain_classifier_features(X_src, target)
     X_src_np = X_src_clean.values.astype(np.float32)
-    X_tgt_np = target_clean.values.astype(np.float32)
+    X_tgt_base_np = target_clean.values.astype(np.float32)
 
+    # Per-domain normalization: scale source by source statistics, target by target
+    # statistics. Fitting the scaler on pooled heterogeneous sources (1000+ tables)
+    # produces a corrupted mean/std. Per-domain scaling puts each domain on a
+    # comparable scale without mixing their distributions.
+    src_scaler = StandardScaler()
+    X_src_np = src_scaler.fit_transform(X_src_np)
+    dann_scaler = StandardScaler()
+    X_tgt_base_np = dann_scaler.fit_transform(X_tgt_base_np)  # stored for inference
+
+    X_tgt_np = X_tgt_base_np.copy()
     if unlabeled_features:
         unl_dc = _pool_unlabeled(unlabeled_features, list(target_clean.columns))
         if unl_dc is not None:
             logger.info("[Level 5] Augmenting domain discriminator with %d unlabeled rows.", len(unl_dc))
-            X_tgt_np = np.concatenate([X_tgt_np, unl_dc.values.astype(np.float32)], axis=0)
+            unl_np = dann_scaler.transform(unl_dc.values.astype(np.float32))
+            X_tgt_np = np.concatenate([X_tgt_np, unl_np], axis=0)
 
     n_features = X_src_np.shape[1]
     logger.info("[Level 5] Training on %d matched columns (of %d total)", n_features, X_src.shape[1])
@@ -840,7 +855,7 @@ def run_level5(
                 epoch + 1, n_epochs, lambda_, loss.detach().item(),
             )
 
-    wrapper = _DANNWrapper(net, classes_, list(X_src_clean.columns))
+    wrapper = _DANNWrapper(net, classes_, list(X_src_clean.columns), scaler=dann_scaler)
     proba = wrapper.predict_proba(target)
     return AdaptationResult(
         level="level5",
@@ -937,13 +952,20 @@ def run_level55(
 
     X_src_clean, target_clean = _domain_classifier_features(X_src, target)
     X_src_np = X_src_clean.values.astype(np.float32)
-    X_tgt_np = target_clean.values.astype(np.float32)
+    X_tgt_base_np = target_clean.values.astype(np.float32)
 
+    cdan_src_scaler = StandardScaler()
+    X_src_np = cdan_src_scaler.fit_transform(X_src_np)
+    cdan_scaler = StandardScaler()
+    X_tgt_base_np = cdan_scaler.fit_transform(X_tgt_base_np)
+
+    X_tgt_np = X_tgt_base_np.copy()
     if unlabeled_features:
         unl_dc = _pool_unlabeled(unlabeled_features, list(target_clean.columns))
         if unl_dc is not None:
             logger.info("[Level 5.5] Augmenting domain discriminator with %d unlabeled rows.", len(unl_dc))
-            X_tgt_np = np.concatenate([X_tgt_np, unl_dc.values.astype(np.float32)], axis=0)
+            unl_np = cdan_scaler.transform(unl_dc.values.astype(np.float32))
+            X_tgt_np = np.concatenate([X_tgt_np, unl_np], axis=0)
 
     n_features = X_src_np.shape[1]
     logger.info("[Level 5.5] Training on %d matched columns (of %d total)", n_features, X_src.shape[1])
@@ -1024,7 +1046,7 @@ def run_level55(
             )
 
     # Re-use DANNWrapper — it only calls label_predictor via forward with lambda_=0
-    wrapper = _DANNWrapper(net, classes_, list(X_src_clean.columns))
+    wrapper = _DANNWrapper(net, classes_, list(X_src_clean.columns), scaler=cdan_scaler)
     proba = wrapper.predict_proba(target)
     return AdaptationResult(
         level="level55",

@@ -51,6 +51,23 @@ def _compute_metrics(
     average: str = "binary",
     target_pos_rate: Optional[float] = None,
 ) -> dict[str, float]:
+    # Restrict evaluation to the rows actually scored (e.g. LLM sample)
+    if result.eval_mask is not None:
+        y_true = y_true[result.eval_mask]
+        if result.probabilities is not None:
+            result = AdaptationResult(
+                level=result.level,
+                predictions=result.predictions[result.eval_mask],
+                probabilities=result.probabilities[result.eval_mask],
+                model=result.model,
+            )
+        else:
+            result = AdaptationResult(
+                level=result.level,
+                predictions=result.predictions[result.eval_mask],
+                model=result.model,
+            )
+
     # Use calibrated predictions when a target positive rate is supplied
     # and probabilities are available; otherwise fall back to model.predict().
     if target_pos_rate is not None and result.probabilities is not None:

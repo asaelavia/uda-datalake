@@ -118,7 +118,7 @@ def run_zero_shot(
     label_col: str,
     label_description: str,
     ollama_model: str = "qwen3.5:latest",
-    sample_n: int = 60,
+    sample_n: int = 200,
 ) -> AdaptationResult:
     """
     Zero-shot LLM classification baseline.
@@ -154,6 +154,23 @@ def run_zero_shot(
         )
 
 
+def _stratified_sample(y: np.ndarray, n: int, seed: int = 42) -> np.ndarray:
+    """Return indices for a stratified random sample of size n, preserving class ratio."""
+    rng = np.random.default_rng(seed)
+    classes, counts = np.unique(y, return_counts=True)
+    indices = []
+    for cls, cnt in zip(classes, counts):
+        cls_idx = np.where(y == cls)[0]
+        k = max(1, round(n * cnt / len(y)))
+        k = min(k, len(cls_idx))
+        indices.append(rng.choice(cls_idx, size=k, replace=False))
+    result = np.concatenate(indices)
+    # trim or pad to exactly n if rounding caused drift
+    if len(result) > n:
+        result = rng.choice(result, size=n, replace=False)
+    return result
+
+
 def _run_zero_shot_impl(
     target_df: pd.DataFrame,
     label_col: str,
@@ -165,17 +182,20 @@ def _run_zero_shot_impl(
     df = target_df.drop(columns=[label_col], errors="ignore")
     n = len(df)
 
-    # Determine which rows to score
+    # Determine which rows to score — stratified by label when sampling
+    y = target_df[label_col].values if label_col in target_df.columns else None
     if sample_n > 0 and n > sample_n:
-        rng = np.random.default_rng(42)
-        sample_idx = rng.choice(n, size=sample_n, replace=False)
-        logger.info(
-            "[LLM zero-shot] Sampling %d/%d rows (neutral prob for the rest)", sample_n, n
-        )
+        if y is not None:
+            sample_idx = _stratified_sample(y, sample_n, seed=42)
+        else:
+            rng = np.random.default_rng(42)
+            sample_idx = rng.choice(n, size=sample_n, replace=False)
+        logger.info("[LLM zero-shot] Stratified sample %d/%d rows", sample_n, n)
     else:
         sample_idx = np.arange(n)
 
     proba = np.full((n, 2), 0.5)
+    eval_mask = np.zeros(n, dtype=bool)
     n_parse_fail = 0
 
     for i, idx in enumerate(sample_idx):
@@ -197,6 +217,7 @@ def _run_zero_shot_impl(
         else:
             proba[idx, 0] = conf
             proba[idx, 1] = 1.0 - conf
+        eval_mask[idx] = True
 
         if (i + 1) % 50 == 0:
             logger.info(
@@ -211,13 +232,15 @@ def _run_zero_shot_impl(
         )
 
     predictions = (proba[:, 1] >= 0.5).astype(int)
+    n_scored = int(eval_mask.sum())
     logger.info(
-        "[LLM zero-shot] Done. Predicted positive rate: %.3f",
-        predictions.mean(),
+        "[LLM zero-shot] Done. Scored %d rows. Predicted positive rate (scored only): %.3f",
+        n_scored, predictions[eval_mask].mean() if n_scored else float("nan"),
     )
     return AdaptationResult(
         level="llm_zero_shot",
         predictions=predictions,
         probabilities=proba,
         model=None,
+        eval_mask=eval_mask if n_scored < n else None,  # None = all rows scored, no mask needed
     )

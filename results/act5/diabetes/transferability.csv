@@ -1,2 +1,2 @@
-repurpose_yield,discovery_quality,alignment_density,label_shift,feature_overlap,pas_score,spa_score,cslp_score,lcc_score,pas_loose_score,pca_pas_score,source_consistency,top1_score,overall,n_sources,n_lake_tables,mode
-0.528688181842643,0.40781471902879285,0.375,0.5223933480566112,0.35431937283102266,2.8844148183220024e-08,0.7090421128420322,0.5,0.5,0.5,0.5,0.9507412028624563,0.513405882767517,2.8844148183220024e-08,940,421179,true
+repurpose_yield,discovery_quality,alignment_density,label_shift,feature_overlap,pas_score,spa_score,cslp_score,lcc_score,pas_loose_score,pca_pas_score,zscore_copas_score,npas_score,tsc_score,source_consistency,top1_score,overall,n_sources,n_lake_tables,mode
+0.12427309331576097,0.3650359426109709,0.5,0.9689583333333334,0.8457467532467533,0.0,0.5,0.5,0.5,0.5,0.5,0.6267339033820463,0.0,0.6910016977928692,0.8255578137920021,0.513405882767517,0.0,4,421179,true

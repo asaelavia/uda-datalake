@@ -82,7 +82,7 @@ Repurposing with only the raw label name finds **0 sources** for every tested ta
 
 ### Transferability prediction (PAS)
 
-PCA-whitened centroid margin (PAS) predicts oracle gap closed with Spearman ρ = **+0.721** (p = 0.019) across 10 targets — formally significant with n = 10.
+PCA-whitened centroid margin (PAS) predicts oracle gap closed with Spearman ρ = **+0.685** (p = 0.014) across 12 targets — formally significant with n = 12.
 
 ---
 
