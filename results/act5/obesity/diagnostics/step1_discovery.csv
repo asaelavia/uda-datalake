@@ -1,0 +1,7 @@
+table_id,discovery_score,rank,proxy_col
+z_shiva_tables_licensed_025_1,0.21191697300888399,1,OBESITY MANAGEMENT
+z_quick_time_tables_licensed_turkish,0.200874880702679,2,fat
+z_shiva_tables_licensed_025_8,0.15939547631284193,3,OBESITY MANAGEMENT
+z_whole_tables_licensed_CerealsSanitized,0.0963618206784003,4,fat
+z_whole_tables_licensed_Cereal_Data_1,0.09375562746047363,5,Fat
+z_dose_rate_tables_licensed_us_states_misc_stats,0.08664442351308846,6,obesity_rate

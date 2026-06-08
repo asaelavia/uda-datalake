@@ -1,0 +1,17 @@
+table_id,src_col,tgt_col,sim,proxy_col
+modified_dataset,Pclass,pclass,1.0,Survived
+modified_dataset,Age,age,1.0,Survived
+modified_dataset,SibSp,sibsp,1.0,Survived
+modified_dataset,Parch,parch,1.0,Survived
+modified_dataset,Fare,fare,1.0,Survived
+test_3765,Pclass,pclass,1.0,Survived
+test_3765,Age,age,1.0,Survived
+test_3765,SibSp,sibsp,1.0,Survived
+test_3765,Parch,parch,1.0,Survived
+test_3765,Fare,fare,1.0,Survived
+z_beats_per_minute_tables_licensed_prepared_data_1,brostep,sibsp,0.377,Liveness
+z_beats_per_minute_tables_licensed_prepared_data_1,Valence.,sex,0.3692,Liveness
+z_beats_per_minute_tables_licensed_prepared_data_1,Length.,age,0.3676,Liveness
+z_beats_per_minute_tables_licensed_prepared_data_2,brostep,sibsp,0.377,Liveness
+z_beats_per_minute_tables_licensed_prepared_data_2,Valence.,sex,0.3692,Liveness
+z_beats_per_minute_tables_licensed_prepared_data_2,Length.,age,0.3676,Liveness

@@ -1,0 +1,4 @@
+table_id,proxy_col,n_rows,n_aligned_cols,self_auc,discovery_score
+z_id_tables_licensed_Raw%20data%20Germany%20Human%20samples_2019_10_24,Heart Failure,33,6,0.9815,0.3819
+Raw%20data%20Germany%20Human%20samples,Heart Failure,33,6,0.9815,0.3797
+z_id_tables_licensed_Instrument%20Universe,risk-score,40,1,0.9773,0.1786

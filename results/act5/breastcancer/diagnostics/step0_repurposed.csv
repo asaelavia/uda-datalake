@@ -1,0 +1,28 @@
+table_id,proxy_col,direction,thresh_method,binarize_thresh,n_rows,positive_rate,kept,reason,proxy_quality
+Raw%20data%20Germany%20Human%20samples,Active cancer,NEGATIVE,otsu,0.25,33.0,0.9090909090909091,False,extreme_pos_rate,
+Student_102,Grade,POSITIVE,otsu,10.125,86.0,0.32558139534883723,True,,0.0487
+z_half_life_tables_licensed_results_sss_normalized,Grade,,,,,,False,high_cardinality,
+z_id_tables_licensed_Raw%20data%20Germany%20Human%20samples,Active cancer,NEGATIVE,otsu,0.25,33.0,0.9090909090909091,False,extreme_pos_rate,
+z_id_tables_licensed_Raw%20data%20Germany%20Human%20samples_2019_10_24,Active cancer,NEGATIVE,otsu,0.25,33.0,0.9090909090909091,False,extreme_pos_rate,
+z_id_tables_licensed_Raw%20data%20Germany%20Human%20samples_2019_10_24_1,Active cancer,NEGATIVE,otsu,0.25,33.0,0.9090909090909091,False,extreme_pos_rate,
+z_id_tables_licensed_Student_101,Grade,POSITIVE,otsu,10.125,86.0,0.32558139534883723,False,duplicate,
+z_id_tables_licensed_Student_102,Grade,POSITIVE,otsu,10.125,86.0,0.32558139534883723,False,duplicate,
+z_id_tables_licensed_cell_types,Cell_class_membership,NEGATIVE,otsu,4.5,103.0,0.6990291262135923,True,,0.3883
+z_id_tables_licensed_cell_types_1,Cell_class_membership,NEGATIVE,otsu,4.5,103.0,0.6990291262135923,False,duplicate,
+z_id_tables_licensed_inpatient_diagnoses2,diagnosis_position,NEGATIVE,otsu,6.15625,104.0,0.6057692307692307,True,,0.7692
+z_id_tables_licensed_stest_1,diagnosis,NEGATIVE,otsu,0.25,569.0,0.6274165202108963,True,,1.0
+z_id_tables_licensed_test_data_166,GradeID,POSITIVE,otsu,2.25,96.0,0.6458333333333334,True,,0.5208
+z_id_tables_licensed_test_data_tissue,diagnosis,NEGATIVE,otsu,0.2535425,70.0,0.9571428571428572,False,extreme_pos_rate,
+z_id_tables_licensed_test_data_tissue_1,diagnosis,NEGATIVE,otsu,0.2535425,70.0,0.9571428571428572,False,extreme_pos_rate,
+z_object_tables_licensed_HS.data,grade,POSITIVE,otsu,7.25,301.0,0.21926910299003322,True,,0.1078
+z_object_tables_licensed_HS_11,grade,POSITIVE,otsu,7.25,301.0,0.21926910299003322,True,,0.1078
+z_organism_tables_licensed_additional_datasets,cell_number,NEGATIVE,otsu,18755.34210526316,38.0,0.9210526315789473,False,extreme_pos_rate,
+z_parent_tables_licensed_SampleSurveyResults-Grandbend,GradeLevel,POSITIVE,otsu,9.25,194.0,0.4845360824742268,True,,0.1057
+z_parent_tables_licensed_SampleSurveyResults-Grandbend_1,GradeLevel,POSITIVE,otsu,9.25,194.0,0.4845360824742268,False,duplicate,
+z_parent_tables_licensed_test_data_7,GradeID,POSITIVE,otsu,2.25,96.0,0.6458333333333334,False,duplicate,
+z_processing_time_tables_licensed_test_data_age,diagnosis,NEGATIVE,otsu,0.25513,159.0,0.949685534591195,False,extreme_pos_rate,
+z_processing_time_tables_licensed_test_data_tissue,diagnosis,NEGATIVE,otsu,0.2535425,70.0,0.9571428571428572,False,extreme_pos_rate,
+z_real_time_tables_licensed_boulders_triedLog,V Grade,POSITIVE,otsu,7.964285714285714,303.0,0.39933993399339934,True,,0.2326
+z_time_interval_tables_licensed_multiclass_testdata,diagnosis,NEGATIVE,otsu,0.25,302.0,0.9966887417218543,False,extreme_pos_rate,
+z_whole_tables_licensed_boulders_triedLog,V Grade,POSITIVE,otsu,7.964285714285714,300.0,0.39666666666666667,True,,0.2349
+z_whole_tables_licensed_unit_preset,Grade,POSITIVE,otsu,3.5000000000000004,44.0,0.11363636363636363,False,concept_cap,

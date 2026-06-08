@@ -1,0 +1,8 @@
+table_id,proxy_col,n_rows,n_aligned_cols,self_auc,discovery_score
+z_then_tables_licensed_wpa-workers-doc-9031,income_32,74,3,0.999,0.3654
+z_crime_rate_tables_licensed_StandardMetropolitanAreasData_train_data,income,99,1,0.9659,0.2702
+AuditRandomForest,Income,98,2,0.9605,0.3758
+Parade2005_2,earnings,130,1,0.9247,0.3667
+z_rate_of_return_tables_licensed_hr_data,PayRate,75,1,0.8745,0.3082
+sample_1106,income,100,1,0.8664,0.6467
+z_rate_of_return_tables_licensed_pay,pay_rate,232,2,0.7911,0.2493

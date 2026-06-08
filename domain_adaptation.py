@@ -395,6 +395,24 @@ def run_level2(
     model.fit(X_best, y_best)
     logger.info("[Level 2] Initial model from '%s'", best_id)
 
+    # Minimum-target gate: when n_target < 100, round-1 n_per_class falls to
+    # the floor of 5 (giving only 10 pseudo-labels), validation holdout is
+    # < 10 (early stopping never fires), and all 5 unchecked rounds accumulate
+    # noise from a potentially mis-calibrated source model.
+    if len(target) < 100:
+        logger.info(
+            "[Level 2] Target too small for pseudo-labeling (n=%d < 100); "
+            "skipping pseudo-labeling, returning L0",
+            len(target),
+        )
+        proba_l0 = model.predict_proba(target)
+        return AdaptationResult(
+            level="level2",
+            predictions=model.predict(target),
+            probabilities=proba_l0,
+            model=model,
+        )
+
     # Source pool — permanent anchor in every retrain
     X_src, y_src, w_src = _pool_sources(
         aligned, discovery_scores, label_col, weight_power=weight_power
@@ -509,6 +527,190 @@ def run_level2(
 
     return AdaptationResult(
         level="level2",
+        predictions=best_model.predict(target),
+        probabilities=best_proba,
+        model=best_model,
+    )
+
+
+def run_level2_lsc(
+    aligned: dict[str, pd.DataFrame],
+    discovery_scores: dict[str, float],
+    target: pd.DataFrame,
+    label_col: str,
+    n_rounds: int = 5,
+    pseudo_weight: float = 0.5,
+    weight_power: float = 2.0,
+    denoise: bool = True,
+    lsc_clip: float = 5.0,
+    **xgb_kwargs,
+) -> AdaptationResult:
+    """
+    L2 + Label Shift Correction (AdaMatch-style).
+
+    Extends run_level2 with per-round importance reweighting of source samples
+    to correct for the mismatch between source proxy-label prevalence and the
+    estimated target positive rate.  At each round:
+
+      w_lsc(y=1) = p_t_est / p_s      (upweight source positives when target has more)
+      w_lsc(y=0) = (1-p_t_est)/(1-p_s)
+
+    p_t_est is estimated from the current model's mean predicted P(y=1) on the
+    full unlabeled target.  Weights are clipped to [1/lsc_clip, lsc_clip] and
+    multiplied onto the existing discovery-score weights.
+
+    This directly addresses label shift endemic to lake-based source repurposing:
+    proxy columns (e.g. "Heart Failure" at 18%) often have different prevalence
+    than the true target label (e.g. heart disease at 44%).
+    """
+    round_pcts = [0.10, 0.20, 0.35, 0.50, 0.70][:n_rounds]
+    logger.info("[Level 2 LSC] Iterative self-training + label shift correction (%d rounds)", n_rounds)
+
+    best_id = max(aligned, key=lambda k: discovery_scores.get(k, 0.0))
+    X_best, y_best = _split_xy(aligned[best_id], label_col)
+    model = _make_xgb(**xgb_kwargs)
+    model.fit(X_best, y_best)
+    logger.info("[Level 2 LSC] Initial model from '%s'", best_id)
+
+    # Minimum-target gate (same as run_level2)
+    if len(target) < 100:
+        logger.info(
+            "[Level 2 LSC] Target too small for pseudo-labeling (n=%d < 100); "
+            "skipping pseudo-labeling, returning L0",
+            len(target),
+        )
+        proba_l0 = model.predict_proba(target)
+        return AdaptationResult(
+            level="level2_lsc",
+            predictions=model.predict(target),
+            probabilities=proba_l0,
+            model=model,
+        )
+
+    X_src, y_src, w_src_base = _pool_sources(
+        aligned, discovery_scores, label_col, weight_power=weight_power
+    )
+
+    if denoise:
+        w_src_base = _confident_denoising(X_src, y_src, w_src_base, model)
+
+    classes_ = model.classes_
+
+    def _lsc_weights(proba_tgt: np.ndarray) -> np.ndarray:
+        """Compute per-source-row importance weights from current target predictions."""
+        p_t = float(np.clip(proba_tgt[:, 1].mean(), 0.05, 0.95))
+        p_s = float(np.clip((y_src == classes_[1]).mean(), 0.05, 0.95))
+        lsc = np.where(
+            y_src == classes_[1],
+            p_t / p_s,
+            (1.0 - p_t) / (1.0 - p_s),
+        )
+        lsc = np.clip(lsc, 1.0 / lsc_clip, lsc_clip)
+        w = w_src_base * lsc
+        w = w / w.mean()  # normalise so total weight magnitude is preserved
+        logger.info(
+            "[Level 2 LSC] p_s=%.3f  p_t_est=%.3f  lsc_pos=%.2f  lsc_neg=%.2f",
+            p_s, p_t, p_t / p_s, (1.0 - p_t) / (1.0 - p_s),
+        )
+        return w
+
+    best_model = model
+    best_proba = model.predict_proba(target)
+    best_pseudo_auc: Optional[float] = None
+
+    # Apply LSC from the very first round using the initial model
+    w_src = _lsc_weights(best_proba)
+
+    for round_idx, pct in enumerate(round_pcts):
+        proba_all = model.predict_proba(target)
+        confidence = proba_all.max(axis=1)
+        pred_cls   = proba_all.argmax(axis=1)
+
+        n_per_class = max(5, int(len(target) * pct / 2))
+        pseudo_mask = np.zeros(len(target), dtype=bool)
+        for c in range(2):
+            cls_idx = np.where(pred_cls == c)[0]
+            if len(cls_idx) == 0:
+                continue
+            top_idx = cls_idx[np.argsort(confidence[cls_idx])[-n_per_class:]]
+            pseudo_mask[top_idx] = True
+        n_pseudo = int(pseudo_mask.sum())
+
+        logger.info(
+            "[Level 2 LSC] Round %d: %d pseudo-labels (top %.0f%% per class)",
+            round_idx + 1, n_pseudo, pct * 100,
+        )
+        if n_pseudo < 10:
+            break
+
+        pseudo_idx = np.where(pseudo_mask)[0]
+        rng = np.random.default_rng(xgb_kwargs.get("random_state", 42) + round_idx)
+        val_size = max(5, len(pseudo_idx) // 5)
+        val_local = rng.choice(len(pseudo_idx), size=val_size, replace=False)
+        val_idx   = pseudo_idx[val_local]
+        train_idx = np.setdiff1d(pseudo_idx, val_idx)
+
+        train_pseudo_mask = np.zeros(len(target), dtype=bool)
+        train_pseudo_mask[train_idx] = True
+
+        pseudo_X_train = target[train_pseudo_mask].copy()
+        pseudo_y_train = pd.Series(
+            model.classes_[proba_all[train_pseudo_mask].argmax(axis=1)],
+            name=label_col,
+        )
+        pseudo_w_train = np.full(len(pseudo_X_train), pseudo_weight)
+
+        X_aug = pd.concat([X_src, pseudo_X_train], ignore_index=True)
+        y_aug = pd.concat([y_src, pseudo_y_train], ignore_index=True)
+        w_aug = np.concatenate([w_src, pseudo_w_train])
+
+        new_model = _make_xgb(**xgb_kwargs)
+        new_model.fit(X_aug, y_aug, sample_weight=w_aug)
+
+        pseudo_classes_used = np.unique(model.classes_[proba_all[pseudo_mask].argmax(axis=1)])
+        if len(pseudo_classes_used) < 2:
+            logger.info("[Level 2 LSC] Round %d: all pseudo-labels single class — skipping", round_idx + 1)
+            continue
+
+        # Update LSC weights for next round using the new model's target predictions
+        new_proba_tgt = new_model.predict_proba(target)
+        w_src = _lsc_weights(new_proba_tgt)
+
+        if len(val_idx) >= 3:
+            val_pseudo_bin = (
+                model.classes_[proba_all[val_idx].argmax(axis=1)] == model.classes_[1]
+            ).astype(int)
+            new_val_scores = new_model.predict_proba(target.iloc[val_idx])[:, 1]
+            try:
+                round_auc = float(roc_auc_score(val_pseudo_bin, new_val_scores))
+            except ValueError:
+                round_auc = float("nan")
+            if np.isnan(round_auc):
+                best_model = new_model
+                best_proba = new_proba_tgt
+            else:
+                logger.info("[Level 2 LSC] Round %d pseudo-holdout AUC: %.4f", round_idx + 1, round_auc)
+                if round_auc >= 1.0 - 1e-6:
+                    logger.info("[Level 2 LSC] Round %d: pseudo-holdout AUC=1.0 (memorisation) — stopping", round_idx + 1)
+                    if best_pseudo_auc is None:
+                        best_model = new_model
+                        best_proba = new_proba_tgt
+                    break
+                if best_pseudo_auc is not None and round_auc < best_pseudo_auc - 0.01:
+                    logger.info("[Level 2 LSC] Early stop: AUC degraded (%.4f < %.4f)", round_auc, best_pseudo_auc)
+                    break
+                if best_pseudo_auc is None or round_auc >= best_pseudo_auc:
+                    best_pseudo_auc = round_auc
+                    best_model = new_model
+                    best_proba = new_proba_tgt
+        else:
+            best_model = new_model
+            best_proba = new_proba_tgt
+
+        model = new_model
+
+    return AdaptationResult(
+        level="level2_lsc",
         predictions=best_model.predict(target),
         probabilities=best_proba,
         model=best_model,
@@ -731,6 +933,385 @@ class _DANNWrapper:
         return self.classes_[proba.argmax(axis=1)]
 
 
+def _sinkhorn(
+    a: np.ndarray,
+    b: np.ndarray,
+    M: np.ndarray,
+    reg: float = 0.1,
+    n_iter: int = 200,
+) -> np.ndarray:
+    """
+    Log-domain Sinkhorn algorithm.  Returns transport plan T of shape (len(a), len(b)).
+    reg: entropy regularisation — larger = more diffuse transport (closer to uniform).
+    Uses scipy logsumexp for numerical stability.
+    """
+    from scipy.special import logsumexp
+
+    log_K = -M / reg
+    log_u = np.zeros_like(a)
+    log_v = np.zeros_like(b)
+    log_a = np.log(a + 1e-300)
+    log_b = np.log(b + 1e-300)
+    for _ in range(n_iter):
+        log_u = log_a - logsumexp(log_K + log_v[None, :], axis=1)
+        log_v = log_b - logsumexp(log_K + log_u[:, None], axis=0)
+    return np.exp(log_K + log_u[:, None] + log_v[None, :])
+
+
+def run_level_ot(
+    aligned: dict[str, pd.DataFrame],
+    discovery_scores: dict[str, float],
+    target: pd.DataFrame,
+    label_col: str,
+    reg: float = 0.1,
+    n_rounds: int = 3,
+    weight_power: float = 2.0,
+    max_tgt_ot: int = 1000,
+    **xgb_kwargs,
+) -> AdaptationResult:
+    """
+    Class-conditional Optimal Transport reweighting.
+
+    Computes two separate Sinkhorn transport plans — one matching source
+    positives to predicted target positives, another matching source
+    negatives to predicted target negatives.  This corrects covariate
+    shift WITHIN each class without conflating them, avoiding the failure
+    mode of pure feature-space OT where inverted-label source rows get
+    upweighted because they happen to be close to target rows in feature space.
+
+    Each round: refit model → re-predict target classes → recompute OT.
+
+    Parameters
+    ----------
+    reg:
+        Sinkhorn entropy regularisation (smaller = sharper transport).
+    n_rounds:
+        Number of model-refit iterations (3 is typically sufficient).
+    max_tgt_ot:
+        Maximum target rows used per class for the cost matrix.
+    """
+    logger.info("[Level OT] Class-conditional OT (reg=%.3f, rounds=%d)", reg, n_rounds)
+
+    X_src, y_src, w_disc = _pool_sources(
+        aligned, discovery_scores, label_col, weight_power=weight_power
+    )
+
+    # Impute NaN with source column medians, then standardise.
+    X_src_arr = X_src.values.astype(float)
+    X_tgt_arr = target.values.astype(float)
+    col_medians = np.nanmedian(X_src_arr, axis=0)
+    col_medians = np.where(np.isnan(col_medians), 0.0, col_medians)
+    for arr in (X_src_arr, X_tgt_arr):
+        mask = np.isnan(arr)
+        if mask.any():
+            arr[mask] = np.take(col_medians, np.where(mask)[1])
+
+    scaler = StandardScaler()
+    X_src_scaled = scaler.fit_transform(X_src_arr)
+    X_tgt_scaled = scaler.transform(X_tgt_arr)
+
+    # Identify the positive class (class 1 if available)
+    try:
+        pos_class = sorted(y_src.unique())[1]
+    except IndexError:
+        pos_class = y_src.unique()[0]
+    src_pos_mask = (y_src == pos_class).values
+    src_neg_mask = ~src_pos_mask
+
+    # Initialise with the best single source (L0) to get the first class predictions
+    best_id = max(aligned, key=lambda k: discovery_scores.get(k, 0.0))
+    X_init, y_init = _split_xy(aligned[best_id], label_col)
+    model = _make_xgb(**xgb_kwargs)
+    model.fit(X_init, y_init)
+
+    best_model = model
+    best_proba = model.predict_proba(target)
+
+    rng = np.random.default_rng(xgb_kwargs.get("random_state", 42))
+
+    for round_idx in range(n_rounds):
+        # Class-balanced target partitioning: take equal numbers of most-confident
+        # positive and negative predictions to prevent model calibration bias from
+        # causing one class to dominate the OT and collapse the solution.
+        proba_all = best_model.predict_proba(target)
+        confidence = proba_all.max(axis=1)
+        pred_cls_all = proba_all.argmax(axis=1)
+        n_per_class_ot = max(50, len(target) // 4)
+
+        pos_pred_idx = np.where(pred_cls_all == 1)[0]
+        neg_pred_idx = np.where(pred_cls_all == 0)[0]
+
+        # Balanced: top-N most confident per class
+        n_pos_sel = min(n_per_class_ot, len(pos_pred_idx))
+        n_neg_sel = min(n_per_class_ot, len(neg_pred_idx))
+        tgt_pos_idx = pos_pred_idx[np.argsort(confidence[pos_pred_idx])[-n_pos_sel:]]
+        tgt_neg_idx = neg_pred_idx[np.argsort(confidence[neg_pred_idx])[-n_neg_sel:]]
+
+        w_ot = np.ones(len(X_src_scaled))
+
+        for cls_mask, tgt_idx in [(src_pos_mask, tgt_pos_idx),
+                                   (src_neg_mask, tgt_neg_idx)]:
+            n_s = int(cls_mask.sum())
+            n_t = len(tgt_idx)
+            if n_s == 0 or n_t == 0:
+                continue
+
+            # Subsample target class rows if large
+            if n_t > max_tgt_ot:
+                sel = rng.choice(n_t, size=max_tgt_ot, replace=False)
+                tgt_sel = tgt_idx[sel]
+            else:
+                tgt_sel = tgt_idx
+            n_ref = len(tgt_sel)
+
+            Xs_cls = X_src_scaled[cls_mask]
+            Xt_cls = X_tgt_scaled[tgt_sel]
+
+            diff = Xs_cls[:, None, :] - Xt_cls[None, :, :]
+            M = (diff ** 2).sum(axis=2)
+            M_med = float(np.median(M))
+            if M_med > 1e-9:
+                M = M / M_med
+
+            T = _sinkhorn(np.ones(n_s) / n_s, np.ones(n_ref) / n_ref, M, reg=reg)
+            w_cls = T.sum(axis=1) * n_s
+            w_ot[cls_mask] = w_cls
+
+        w_ot = np.clip(w_ot, 0.01, 10.0)
+        w_ot = w_ot / w_ot.mean()
+
+        w_final = w_disc * w_ot
+        w_final = w_final / w_final.mean()
+
+        model = _make_xgb(**xgb_kwargs)
+        model.fit(X_src, y_src, sample_weight=w_final)
+        best_model = model
+        best_proba = model.predict_proba(target)
+
+        logger.info(
+            "[Level OT] Round %d — w_std=%.3f  tgt_pos=%d/%d  pred_pos_rate=%.3f",
+            round_idx + 1, w_final.std(),
+            len(tgt_pos_idx), len(target), float(best_proba[:, 1].mean()),
+        )
+
+    return AdaptationResult(
+        level="level_ot",
+        predictions=best_model.predict(target),
+        probabilities=best_proba,
+        model=best_model,
+    )
+
+
+def run_level_qbc(
+    aligned: dict[str, pd.DataFrame],
+    discovery_scores: dict[str, float],
+    target: pd.DataFrame,
+    label_col: str,
+    n_committee: int = 5,
+    n_rounds: int = 5,
+    pseudo_weight: float = 0.5,
+    weight_power: float = 2.0,
+    min_agree_rate: float = 0.6,
+    **xgb_kwargs,
+) -> AdaptationResult:
+    """
+    L2 + Committee Filter (QBC-F).
+
+    Extends L2 pseudo-labeling with a committee-as-filter step that rejects
+    pseudo-labels where the committee disagrees with the main model.
+
+    Addresses L2's confirmation bias: the main model selects pseudo-labels
+    based on its OWN confidence — a self-reinforcing loop.  Here, K source
+    models trained on DIFFERENT individual sources act as independent
+    validators.  A pseudo-label is accepted only when committee_agreement >=
+    min_agree_rate (default 3/5 models agree with main model's prediction).
+
+    This does not require the committee to be well-calibrated independently
+    (they all predict the same systematically biased distribution) — it
+    only requires that truly easy target rows (where the label is obvious
+    across diverse source perspectives) get higher agreement than hard ones.
+
+    Selection schedule and class-balanced sampling are the same as L2.
+    """
+    from sklearn.cluster import MiniBatchKMeans
+
+    round_pcts = [0.10, 0.20, 0.35, 0.50, 0.70][:n_rounds]
+    logger.info("[Level QBC-F] Committee filter (K=%d, min_agree=%.0f%%, rounds=%d)",
+                n_committee, min_agree_rate * 100, n_rounds)
+
+    # Minimum-target gate (same as L2)
+    if len(target) < 100:
+        logger.info("[Level QBC-F] Target too small (n=%d < 100) — returning L0", len(target))
+        best_id = max(aligned, key=lambda k: discovery_scores.get(k, 0.0))
+        X_b, y_b = _split_xy(aligned[best_id], label_col)
+        m = _make_xgb(**xgb_kwargs); m.fit(X_b, y_b)
+        return AdaptationResult(level="level_qbc", predictions=m.predict(target),
+                                probabilities=m.predict_proba(target), model=m)
+
+    # Build committee from top-K distinct sources
+    sorted_srcs = sorted(aligned, key=lambda k: discovery_scores.get(k, 0.0), reverse=True)
+    committee: list = []
+    for src_id in sorted_srcs[:n_committee]:
+        X_c, y_c = _split_xy(aligned[src_id], label_col)
+        if y_c.nunique() < 2:
+            continue
+        m = _make_xgb(**xgb_kwargs)
+        m.fit(X_c, y_c)
+        committee.append(m)
+
+    if len(committee) < 2:
+        logger.warning("[Level QBC-F] Committee too small — falling back to Level 2")
+        return run_level2(aligned, discovery_scores, target, label_col,
+                          n_rounds=n_rounds, pseudo_weight=pseudo_weight,
+                          weight_power=weight_power, **xgb_kwargs)
+
+    logger.info("[Level QBC-F] Committee size: %d", len(committee))
+    min_votes = max(1, int(np.ceil(len(committee) * min_agree_rate)))
+
+    # Source pool — permanent anchor
+    X_src, y_src, w_src = _pool_sources(
+        aligned, discovery_scores, label_col, weight_power=weight_power
+    )
+
+    # Apply confident denoising to source (same as L2)
+    best_id = sorted_srcs[0]
+    X_init, y_init = _split_xy(aligned[best_id], label_col)
+    model = _make_xgb(**xgb_kwargs)
+    model.fit(X_init, y_init)
+    logger.info("[Level QBC-F] Initial model from '%s'", best_id)
+
+    w_src_de = _confident_denoising(X_src, y_src, w_src, model)
+
+    best_model = model
+    best_proba = model.predict_proba(target)
+    best_pseudo_auc: Optional[float] = None
+
+    for round_idx, pct in enumerate(round_pcts):
+        proba_all = model.predict_proba(target)
+        confidence = proba_all.max(axis=1)
+        pred_cls = proba_all.argmax(axis=1)
+
+        # Class-balanced candidate selection (same as L2)
+        n_per_class = max(5, int(len(target) * pct / 2))
+        pseudo_mask = np.zeros(len(target), dtype=bool)
+        for c in range(2):
+            cls_idx = np.where(pred_cls == c)[0]
+            if len(cls_idx) == 0:
+                continue
+            top_idx = cls_idx[np.argsort(confidence[cls_idx])[-n_per_class:]]
+            pseudo_mask[top_idx] = True
+
+        # Committee filter: each committee member votes on each candidate
+        # Accept only rows where >= min_votes committee models agree with main prediction
+        com_preds_all = np.stack([m.predict(target) for m in committee], axis=0)  # (K, n_tgt)
+        # Map predictions to integer class index (0/1) for comparison
+        main_pred_idx = pred_cls  # 0 or 1 index into model.classes_
+        # committee predictions converted to same 0/1 index space
+        com_classes_ref = model.classes_
+        com_votes_agree = np.zeros(len(target), dtype=int)
+        for k, com_m in enumerate(committee):
+            com_pred_raw = com_preds_all[k]  # raw class labels
+            # Map to 0/1 matching main model's classes_
+            com_pred_idx = np.array([
+                int(np.where(com_classes_ref == cp)[0][0])
+                if cp in com_classes_ref else -1
+                for cp in com_pred_raw
+            ])
+            com_votes_agree += (com_pred_idx == main_pred_idx).astype(int)
+
+        committee_ok = com_votes_agree >= min_votes
+        filtered_mask = pseudo_mask & committee_ok
+
+        n_before = int(pseudo_mask.sum())
+        n_after = int(filtered_mask.sum())
+
+        # Re-balance after committee filter: committee biases against positives,
+        # so take min(n_pos_filtered, n_neg_filtered) from each class.
+        filtered_idx = np.where(filtered_mask)[0]
+        filt_cls = pred_cls[filtered_idx]
+        pos_filt = filtered_idx[filt_cls == 1]
+        neg_filt = filtered_idx[filt_cls == 0]
+        n_bal = min(len(pos_filt), len(neg_filt))
+        if n_bal > 0:
+            sel_pos = pos_filt[np.argsort(confidence[pos_filt])[-n_bal:]]
+            sel_neg = neg_filt[np.argsort(confidence[neg_filt])[-n_bal:]]
+            pseudo_idx = np.concatenate([sel_pos, sel_neg])
+        else:
+            pseudo_idx = filtered_idx
+        n_balanced = len(pseudo_idx)
+
+        logger.info(
+            "[Level QBC-F] Round %d: %d → filter → %d → balanced → %d pseudo-labels",
+            round_idx + 1, n_before, n_after, n_balanced,
+        )
+
+        if n_balanced < 10:
+            logger.info("[Level QBC-F] Too few balanced pseudo-labels — stopping")
+            break
+        rng = np.random.default_rng(xgb_kwargs.get("random_state", 42) + round_idx)
+        val_size = max(5, len(pseudo_idx) // 5)
+        val_local = rng.choice(len(pseudo_idx), size=val_size, replace=False)
+        val_idx = pseudo_idx[val_local]
+        train_idx = np.setdiff1d(pseudo_idx, val_idx)
+
+        train_mask = np.zeros(len(target), dtype=bool)
+        train_mask[train_idx] = True
+
+        pseudo_X = target[train_mask].copy()
+        pseudo_y = pd.Series(
+            model.classes_[proba_all[train_mask].argmax(axis=1)],
+            name=label_col,
+        )
+        pseudo_w = np.full(len(pseudo_X), pseudo_weight)
+
+        if pseudo_y.nunique() < 2:
+            logger.info("[Level QBC-F] Round %d: all pseudo-labels single class — skipping",
+                        round_idx + 1)
+            continue
+
+        X_aug = pd.concat([X_src, pseudo_X], ignore_index=True)
+        y_aug = pd.concat([y_src, pseudo_y], ignore_index=True)
+        w_aug = np.concatenate([w_src_de, pseudo_w])
+
+        new_model = _make_xgb(**xgb_kwargs)
+        new_model.fit(X_aug, y_aug, sample_weight=w_aug)
+
+        # Early stopping on pseudo-holdout AUC
+        if len(val_idx) >= 10:
+            val_pseudo_bin = (
+                model.classes_[proba_all[val_idx].argmax(axis=1)] == model.classes_[1]
+            ).astype(int)
+            new_val_scores = new_model.predict_proba(target.iloc[val_idx])[:, 1]
+            try:
+                round_auc = float(roc_auc_score(val_pseudo_bin, new_val_scores))
+            except ValueError:
+                round_auc = float("nan")
+            if np.isnan(round_auc):
+                best_model = new_model
+                best_proba = new_model.predict_proba(target)
+            else:
+                logger.info("[Level QBC-F] Round %d pseudo-holdout AUC: %.4f", round_idx + 1, round_auc)
+                if best_pseudo_auc is not None and round_auc < best_pseudo_auc - 0.01:
+                    logger.info("[Level QBC-F] Early stop: AUC degraded")
+                    break
+                if best_pseudo_auc is None or round_auc >= best_pseudo_auc:
+                    best_pseudo_auc = round_auc
+                    best_model = new_model
+                    best_proba = new_model.predict_proba(target)
+        else:
+            best_model = new_model
+            best_proba = new_model.predict_proba(target)
+
+        model = new_model
+
+    return AdaptationResult(
+        level="level_qbc",
+        predictions=best_model.predict(target),
+        probabilities=best_proba,
+        model=best_model,
+    )
+
+
 def run_level5(
     aligned: dict[str, pd.DataFrame],
     discovery_scores: dict[str, float],
@@ -741,6 +1322,7 @@ def run_level5(
     lr: float = 1e-3,
     weight_power: float = 1.0,
     unlabeled_features: Optional[dict[str, pd.DataFrame]] = None,
+    volume_src: Optional[pd.DataFrame] = None,
     random_state: int = 42,
     use_gce: bool = True,
     **_ignored_xgb_kwargs,
@@ -758,6 +1340,10 @@ def run_level5(
         Optional dict of feature-only DataFrames (e.g. from GitTables).
         Added to the target batches fed to the domain discriminator, broadening
         the domain classifier's view of P(source) without touching the label loss.
+    volume_src:
+        Optional concatenated DataFrame of weakly-aligned source features (no labels).
+        Added to the SOURCE side of the domain discriminator only — not the label loss.
+        Restores DANN's source volume when the quality alignment threshold is strict.
     """
     try:
         import torch
@@ -802,6 +1388,22 @@ def run_level5(
     n_features = X_src_np.shape[1]
     logger.info("[Level 5] Training on %d matched columns (of %d total)", n_features, X_src.shape[1])
 
+    # Volume sources: weakly-aligned tables that failed quality threshold.
+    # Used for SOURCE-side domain discriminator only — not the label loss.
+    X_vol_t: "Optional[torch.Tensor]" = None
+    n_vol = 0
+    if volume_src is not None and len(volume_src) > 0:
+        vol_cols = [c for c in X_src_clean.columns if c in volume_src.columns]
+        if vol_cols:
+            X_vol = volume_src.reindex(columns=list(X_src_clean.columns))
+            for c in X_src_clean.columns:
+                med = float(np.nanmedian(X_src_clean[c].values)) if X_src_clean[c].notna().any() else 0.0
+                X_vol[c] = X_vol[c].fillna(med)
+            X_vol_np = src_scaler.transform(X_vol.values.astype(np.float32))
+            n_vol = len(X_vol_np)
+            X_vol_t = torch.tensor(X_vol_np)
+            logger.info("[Level 5] Volume augmentation: %d rows → SOURCE-side domain discriminator", n_vol)
+
     net = _DANNNet(n_features, hidden_dim)
     optimizer = torch.optim.Adam(net.parameters(), lr=lr)
     ce_loss = nn.CrossEntropyLoss(reduction="none")
@@ -839,10 +1441,21 @@ def run_level5(
 
         d_labels_s = torch.zeros(batch_size, dtype=torch.long)
         d_labels_t = torch.ones(batch_size, dtype=torch.long)
-        dom_loss = (
-            ce_loss(domain_out_s, d_labels_s).mean()
-            + ce_loss(domain_out_t, d_labels_t).mean()
-        ) / 2.0
+        if n_vol > 0 and X_vol_t is not None:
+            vol_idx = rng.integers(0, n_vol, batch_size)
+            x_vol = X_vol_t[vol_idx]
+            _, domain_out_vol = net(x_vol, lambda_)
+            d_labels_vol = torch.zeros(batch_size, dtype=torch.long)
+            dom_loss = (
+                ce_loss(domain_out_s, d_labels_s).mean()
+                + ce_loss(domain_out_vol, d_labels_vol).mean()
+                + ce_loss(domain_out_t, d_labels_t).mean()
+            ) / 3.0
+        else:
+            dom_loss = (
+                ce_loss(domain_out_s, d_labels_s).mean()
+                + ce_loss(domain_out_t, d_labels_t).mean()
+            ) / 2.0
 
         loss = lbl_loss + lambda_ * dom_loss
         optimizer.zero_grad()
@@ -919,6 +1532,7 @@ def run_level55(
     lr: float = 1e-3,
     weight_power: float = 1.0,
     unlabeled_features: Optional[dict[str, pd.DataFrame]] = None,
+    volume_src: Optional[pd.DataFrame] = None,
     random_state: int = 42,
     use_gce: bool = True,
     **_ignored_xgb_kwargs,
@@ -970,10 +1584,26 @@ def run_level55(
     n_features = X_src_np.shape[1]
     logger.info("[Level 5.5] Training on %d matched columns (of %d total)", n_features, X_src.shape[1])
 
+    # Volume sources: weakly-aligned tables that failed quality threshold.
+    X_vol_t_55: "Optional[torch.Tensor]" = None
+    n_vol_55 = 0
+    if volume_src is not None and len(volume_src) > 0:
+        vol_cols_55 = [c for c in X_src_clean.columns if c in volume_src.columns]
+        if vol_cols_55:
+            X_vol_55 = volume_src.reindex(columns=list(X_src_clean.columns))
+            for c in X_src_clean.columns:
+                med = float(np.nanmedian(X_src_clean[c].values)) if X_src_clean[c].notna().any() else 0.0
+                X_vol_55[c] = X_vol_55[c].fillna(med)
+            X_vol_np_55 = cdan_src_scaler.transform(X_vol_55.values.astype(np.float32))
+            n_vol_55 = len(X_vol_np_55)
+            X_vol_t_55 = torch.tensor(X_vol_np_55)
+            logger.info("[Level 5.5] Volume augmentation: %d rows → SOURCE-side domain discriminator", n_vol_55)
+
     # CDAN needs a rich enough source sample to train a meaningful feature
     # extractor before conditioning the domain discriminator. Fall back to
     # vanilla DANN when there is not enough labelled source data.
-    _CDAN_MIN_SRC_ROWS = 1000
+    # GitTables sources are small (65-116 rows/table), so 200 requires only ~2 quality tables.
+    _CDAN_MIN_SRC_ROWS = 200
     if len(X_src_np) < _CDAN_MIN_SRC_ROWS:
         logger.info(
             "[Level 5.5] Only %d source rows — CDAN fallback to DANN (min=%d)",
@@ -983,7 +1613,7 @@ def run_level55(
             aligned, discovery_scores, target, label_col,
             n_epochs=n_epochs, hidden_dim=hidden_dim, lr=lr,
             weight_power=weight_power, unlabeled_features=unlabeled_features,
-            random_state=random_state, use_gce=False,
+            volume_src=volume_src, random_state=random_state, use_gce=False,
         )
         return AdaptationResult(
             level="level55",
@@ -1029,10 +1659,21 @@ def run_level55(
 
         d_labels_s = torch.zeros(batch_size, dtype=torch.long)
         d_labels_t = torch.ones(batch_size, dtype=torch.long)
-        dom_loss = (
-            ce_loss(domain_out_s, d_labels_s).mean()
-            + ce_loss(domain_out_t, d_labels_t).mean()
-        ) / 2.0
+        if n_vol_55 > 0 and X_vol_t_55 is not None:
+            vol_idx_55 = rng.integers(0, n_vol_55, batch_size)
+            x_vol_55 = X_vol_t_55[vol_idx_55]
+            _, domain_out_vol_55 = net(x_vol_55, lambda_)
+            d_labels_vol_55 = torch.zeros(batch_size, dtype=torch.long)
+            dom_loss = (
+                ce_loss(domain_out_s, d_labels_s).mean()
+                + ce_loss(domain_out_vol_55, d_labels_vol_55).mean()
+                + ce_loss(domain_out_t, d_labels_t).mean()
+            ) / 3.0
+        else:
+            dom_loss = (
+                ce_loss(domain_out_s, d_labels_s).mean()
+                + ce_loss(domain_out_t, d_labels_t).mean()
+            ) / 2.0
 
         loss = lbl_loss + lambda_ * dom_loss
         optimizer.zero_grad()
@@ -1190,6 +1831,7 @@ def run_all(
     pseudo_weight: float = 0.5,
     n_dann_epochs: int = 200,
     unlabeled_features: Optional[dict[str, pd.DataFrame]] = None,
+    volume_src: Optional[pd.DataFrame] = None,
     random_state: int = 42,
     **xgb_kwargs,
 ) -> dict[str, AdaptationResult]:
@@ -1207,13 +1849,18 @@ def run_all(
     r_l2       = run_level2(aligned, discovery_scores, target, label_col,
                             n_rounds=n_rounds, pseudo_weight=pseudo_weight,
                             weight_power=weight_power, **_xgb)
+    r_l2_lsc   = run_level2_lsc(aligned, discovery_scores, target, label_col,
+                                 n_rounds=n_rounds, pseudo_weight=pseudo_weight,
+                                 weight_power=weight_power, **_xgb)
     r_l5       = run_level5(aligned, discovery_scores, target, label_col,
                             n_epochs=n_dann_epochs, weight_power=weight_power,
                             unlabeled_features=unlabeled_features,
+                            volume_src=volume_src,
                             random_state=random_state, use_gce=False)
     r_l55      = run_level55(aligned, discovery_scores, target, label_col,
                              n_epochs=n_dann_epochs, weight_power=weight_power,
                              unlabeled_features=unlabeled_features,
+                             volume_src=volume_src,
                              random_state=random_state, use_gce=False)
     r_ens      = run_ensemble(r_l2, r_l5)
     r_src_ens  = run_source_ensemble(aligned, discovery_scores, target, label_col,
@@ -1224,6 +1871,7 @@ def run_all(
         "baseline":        r_baseline,
         "level0":          r_l0,
         "level2":          r_l2,
+        "level2_lsc":      r_l2_lsc,
         "level5":          r_l5,
         "level55":         r_l55,
         "level6":          r_l6,

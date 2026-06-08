@@ -115,9 +115,10 @@ def _collect_pairs(target_labels: dict[str, str]) -> dict[str, set[str]]:
         matched_label = None
         fname = path.stem.lower()
         for tname, label in target_labels.items():
-            slug = label.replace(" ", "_").replace(">", "").replace("%", "").lower()
-            short = tname.lower()
-            if slug in fname or short in fname:
+            slug = label.replace(" ", "_").replace(">", "").replace("%", "").replace("-", "_").lower()
+            short = tname.lower().replace("_", "")
+            fname_nounderscore = fname.replace("_", "")
+            if slug in fname or short in fname_nounderscore:
                 matched_label = label
                 break
         if matched_label is None:

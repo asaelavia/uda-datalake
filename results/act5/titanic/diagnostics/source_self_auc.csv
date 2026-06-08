@@ -1,0 +1,5 @@
+table_id,proxy_col,n_rows,n_aligned_cols,self_auc,discovery_score
+modified_dataset,Survived,100,5,0.9963,0.6671
+z_beats_per_minute_tables_licensed_prepared_data_1,Liveness,50,3,0.9931,0.305
+z_beats_per_minute_tables_licensed_prepared_data_2,Liveness,50,3,0.9931,0.2802
+test_3765,Survived,89,6,0.9762,0.6334

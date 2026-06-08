@@ -1,0 +1,7 @@
+table_id,proxy_col,n_rows,n_aligned_cols,self_auc,discovery_score
+z_attrition_rate_tables_licensed_test-data,Attrition,294,4,0.9522,0.2258
+z_parent_tables_licensed_culture500_data_preprocessed,Customer,532,3,0.8275,0.1469
+z_attrition_rate_tables_licensed_test_2,Attrition,282,2,0.7324,0.1809
+z_attrition_rate_tables_licensed_train,Attrition,1188,2,0.697,0.2051
+z_lead_time_tables_licensed_hotel_bookings,is_canceled,99,2,0.6196,0.2204
+8427f50a21ae03cb9d77bde9511b1abf_userdata_1,Active,35,2,0.5,0.1911

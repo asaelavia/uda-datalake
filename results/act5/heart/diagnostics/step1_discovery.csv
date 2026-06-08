@@ -1,0 +1,5 @@
+table_id,discovery_score,rank,proxy_col
+z_id_tables_licensed_Raw%20data%20Germany%20Human%20samples_2019_10_24,0.3818526595582359,1,Heart Failure
+Raw%20data%20Germany%20Human%20samples,0.37966637910395934,2,Heart Failure
+z_id_tables_licensed_Instrument%20Universe,0.1785736112326032,3,risk-score
+z_parent_tables_licensed_feature,0.09887703700584378,4,Risk Score

@@ -1,0 +1,7 @@
+table_id,src_col,tgt_col,sim,proxy_col
+z_id_tables_licensed_Hosp_Network_geocoded,long,age,0.3973,stroke_unit
+z_running_time_tables_licensed_Rach%20Madden,Avg Power,avg_glucose_level,0.5298,Total Strokes
+z_time_interval_tables_licensed_Simon%20R%20Gronow,Avg Power,avg_glucose_level,0.5298,Total Strokes
+Bragantino_12,status_id,smoking_status,0.5731,CV
+Atl%C3%A9tico-GO_14,status_id,smoking_status,0.5731,CV
+Atl%C3%A9tico-GO_15,status_id,smoking_status,0.5731,CV

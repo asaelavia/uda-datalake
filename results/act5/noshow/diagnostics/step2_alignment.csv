@@ -1,0 +1,7 @@
+table_id,src_col,tgt_col,sim,proxy_col
+z_parent_tables_licensed_sys_menu_4,ID,age,0.3917,IS_SHOW
+z_organism_tables_licensed_annotation_5,relapse,alcoholism,0.3636,patient_id
+z_id_tables_licensed_2020-11-26_14-41-39_overview,id,age,0.3917,rescheduling_time
+z_id_tables_licensed_2020-11-26_14-41-39_overview,pricing_time,days_in_advance,0.3642,rescheduling_time
+z_rainy_day_tables_licensed_texas_rangers_attendance_2012,day,days_in_advance,0.4799,attend
+z_organism_tables_licensed_info.gb,days_from_seroconversion,days_in_advance,0.4755,patient_id

@@ -1,0 +1,11 @@
+table_id,discovery_score,rank,proxy_col
+z_id_tables_licensed_Hosp_Network_geocoded,0.4604815865486374,1,stroke_unit
+z_running_time_tables_licensed_Rach%20Madden,0.33312043973206484,2,Total Strokes
+z_time_interval_tables_licensed_Simon%20R%20Gronow,0.32181637367654314,3,Total Strokes
+Bragantino_12,0.1956854463539762,4,CV
+Atl%C3%A9tico-GO_14,0.1834824723944696,5,CV
+Atl%C3%A9tico-GO_15,0.1834824723944696,6,CV
+z_processing_time_tables_licensed_clip_data,0.13819016683317614,7,CVC
+z_half_life_tables_licensed_kangxi,0.1251363046692584,8,strokes
+z_thing_tables_licensed_words_46,0.07624067993635611,9,cvc
+z_running_time_tables_licensed_nessus_example_2,0.06817830771135129,10,CVSS

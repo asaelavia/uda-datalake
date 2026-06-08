@@ -1,0 +1,9 @@
+table_id,src_col,tgt_col,sim,proxy_col
+z_id_tables_licensed_sample_1136,Pregnancies,pres,0.5025,Diabetic
+z_id_tables_licensed_sample_1136,SerumInsulin,skin,0.3847,Diabetic
+z_id_tables_licensed_sample_1136,BMI,mass,0.4175,Diabetic
+z_id_tables_licensed_sample_1136,Age,age,1.0,Diabetic
+z_respiratory_rate_tables_licensed_10094_episode1_timeseries,Hours,age,0.3561,Glucose
+z_respiratory_rate_tables_licensed_10266_episode1_timeseries,Hours,age,0.3561,Glucose
+z_respiratory_rate_tables_licensed_10266_episode1_timeseries,Weight,mass,0.5968,Glucose
+z_respiratory_rate_tables_licensed_10616_episode1_timeseries,Hours,age,0.3561,Glucose

@@ -1,0 +1,13 @@
+table_id,discovery_score,rank,proxy_col
+z_crime_rate_tables_licensed_test_state_data_basic,0.4435790130009838,1,Violent crime
+z_crime_rate_tables_licensed_Factors,0.42198388959924243,2,"Crime rate per 10,000 (from May 15, 2019 to June 15, 2019 )"
+z_crime_rate_tables_licensed_1033-by-state,0.42034511324347656,3,violent_crime_rate_per_100000_inhabitants
+z_crime_rate_tables_licensed_hate_crimes,0.3555785404867531,4,hate_crime_rate
+z_crime_rate_tables_licensed_rank_file,0.34893047325112686,5,Crime_rank
+z_in_time_tables_licensed_genre-tag_vectors,0.32182264498693997,6,Crime
+z_crime_rate_tables_licensed_c_data2_1,0.31674632607262887,7,total_crime
+z_beauty_sleep_tables_licensed_avaliacoes_usuario_12,0.2652419256256881,8,Crime
+z_crime_rate_tables_licensed_StandardMetropolitanAreasData_train_data,0.23140041001158654,9,crime_rate
+z_half_life_tables_licensed_movies_2020,0.18982874393626203,10,Crime
+z_crime_rate_tables_licensed_district_1,0.1870608903286973,11,crime_number
+z_id_tables_licensed_factbook-oceania,0.17432094287275712,12,death_rate

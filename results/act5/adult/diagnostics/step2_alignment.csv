@@ -1,0 +1,18 @@
+table_id,src_col,tgt_col,sim,proxy_col
+sample_1106,age,age,1.0,income
+z_rate_of_return_tables_licensed_hr_data,Age,age,1.0,PayRate
+Parade2005_2,age,age,1.0,earnings
+z_then_tables_licensed_wpa-workers-doc-9031,age_11,age,0.7416,income_32
+z_then_tables_licensed_wpa-workers-doc-9031,hours_worked_26,occupation,0.3813,income_32
+z_then_tables_licensed_wpa-workers-doc-9031,weeks_worked_31,hours-per-week,0.3863,income_32
+AuditRandomForest,Age,age,1.0,Income
+AuditRandomForest,Hours,hours-per-week,0.6184,Income
+z_rate_of_return_tables_licensed_pay,age,age,1.0,pay_rate
+z_parent_tables_licensed_non-profit-100-print-healthcare,revenueChangePercent,capital-gain,0.3953,compensation
+z_crime_rate_tables_licensed_StandardMetropolitanAreasData_train_data,graduates,education,0.6073,income
+z_thing_tables_licensed_soac-2019-11-17,"When you add up the pros and cons for online education, it's probably a good thing for society overall.",education,0.3748,Household Income?
+z_thing_tables_licensed_soac-2019-11-17,Which of these industries most closely matches your profession?,occupation,0.4175,Household Income?
+z_thing_tables_licensed_soac-2019-11-17,Gender?,sex,0.5081,Household Income?
+z_thing_tables_licensed_soac-2019-11-17,Exact Age,age,0.8299,Household Income?
+z_thing_tables_licensed_soac-2019-11-17,What is the highest level of education you have completed?,education-num,0.4554,Household Income?
+z_thing_tables_licensed_soac-2019-11-17,Which race/ethnicity best describes you? (Please choose only one.),race,0.5048,Household Income?

@@ -1,0 +1,4 @@
+table_id,proxy_col,n_rows,n_aligned_cols,self_auc,discovery_score
+z_parent_tables_licensed_sys_menu_4,IS_SHOW,133,1,0.9858,0.2806
+z_id_tables_licensed_2020-11-26_14-41-39_overview,rescheduling_time,40,2,0.9688,0.1756
+z_organism_tables_licensed_annotation_5,patient_id,138,1,0.5668,0.219

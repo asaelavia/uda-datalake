@@ -1,0 +1,81 @@
+table_id,discovery_score,rank,proxy_col
+z_lead_time_tables_licensed_General%20Traffic%20Engineering%20Request,0.3436552453122021,1,Property_ID
+z_running_time_tables_licensed_Bicycle%20Issues,0.3346622815310715,2,Property_ID
+z_lead_time_tables_licensed_Lead_20,0.332146356708274,3,Property_ID
+z_growth_rate_tables_licensed_s3r1a-Weights,0.2542565078743049,4,Low Price
+z_crime_rate_tables_licensed_Crime%20Data,0.2521004464852528,5,HousePrice
+z_lead_time_tables_licensed_DIGIKEY-BOM_1,0.24318308469816832,6,Unit Price
+z_then_tables_licensed_s5r1a-Weights,0.23810836344385916,7,Low Price
+Res,0.23391177453346837,8,price
+z_dead_air_tables_licensed_testInvFile,0.22932059820020742,9,itemPrice
+Houston,0.22824990682730315,10,Median Home Value
+z_id_tables_licensed_Houston,0.22824990682730315,11,Median Home Value
+z_id_tables_licensed_Order%20Details_1,0.22755104981894697,12,Unit Price
+z_question_time_tables_licensed_issue-list,0.2249443472672897,13,Tax calculation
+costSkimMatrixFreight,0.21978528915837817,14,Cost
+butler_games_2014-2016,0.21452874593381546,15,home_id
+z_then_tables_licensed_s4r1a-Weights,0.21368531527114382,16,Low Price
+z_real_time_tables_licensed_propertydata,0.2128897368771131,17,zestimate
+baylor_games_2014-2016,0.20064692868489425,18,home_id
+z_quick_time_tables_licensed_review,0.2002751556912562,19,productPrice
+dataset_sorted_100_1,0.1983772840419459,20,ProductPrice
+z_id_tables_licensed_dataset_100,0.1983772840419459,21,ProductPrice
+georgetown_games_2014-2016,0.1938311718151991,22,home_id
+Products_84,0.19271898203495963,23,UnitPrice
+ProductItems_7,0.19207524733338208,24,Price
+z_data_rate_tables_licensed_Beach%20Point%20Capital%20Management,0.18436770837810929,25,Market Value
+landstates2016_5,0.17545202905318932,26,Home.Value
+z_id_tables_licensed_landstates2016,0.17545202905318932,27,Home.Value
+z_processing_time_tables_licensed_cake_oven_goods,0.17252971772936346,28,OrderPrice
+z_lead_time_tables_licensed_Digikey_theremizer_BOM,0.1722736708773303,29,Unit Price
+daphnia_metabolic_rates,0.17168056463863457,30,median
+z_id_tables_licensed_products_2966,0.17114365770674525,31,list_price
+%23Instance%20of%20single%20line,0.16519378309423124,32,cost
+z_half_life_tables_licensed_london_expected,0.1638054018024085,33,listing_price
+Ingredients,0.1605691430548731,34,Cost
+z_id_tables_licensed_ComputerSales_10,0.16040687948233026,35,Sale Price
+z_abstraction_tables_licensed_FeatureTable_ROM_VIC_Normalized_Female,0.15718591248112157,36,VALUATION
+80_460,0.15540373948671557,37,sales
+z_data_rate_tables_licensed_Louisiana_1,0.1519352160853502,38,estimated_revenues
+z_speed_of_light_tables_licensed_troop_weapon,0.15100560009040676,39,Properties
+z_data_rate_tables_licensed_2020-09-07_2020-09-12_states_abs_errs,0.1495195176395959,40,median
+transactions_90,0.14950350578593302,41,Total_Price
+z_count_per_minute_tables_licensed_summary.throughput,0.14775019426666072,42,median
+z_lead_time_tables_licensed_complete_dataset_small,0.14541662649314718,43,retail_price
+z_dose_rate_tables_licensed_CapricornCoffee,0.1452581001001904,44,SalesPrice
+z_cease_tables_licensed_gjopen-scores-2019,0.14240150225973017,45,Median Score
+purchase_order_line_3,0.13644853767695364,46,price_unit
+z_beauty_sleep_tables_licensed_amazon_books,0.1352816727379263,47,List Price
+variableReport_1_Plovdiv,0.1296513990924469,48,type_estimated
+z_processing_time_tables_licensed_barbecue_grill_goods_2,0.12917459287400956,49,OrderPrice
+z_id_tables_licensed_products_381,0.11996703479102301,50,UnitPrice
+z_organism_tables_licensed_CMS002_016a_Rb_S121_L004,0.11938216956655154,51,tax_level
+z_whole_tables_licensed_week-of-2021-02-07-abq-weekly-commerical-permits,0.11475293549282393,52,int_valuation
+z_id_tables_licensed_Dataset1,0.11092238371727164,53,item_price
+z_id_tables_licensed_taxtable,0.10465050407171791,54,tax_id
+z_id_tables_licensed_test2_21,0.0937263015684111,55,zet
+z_whole_tables_licensed_unit_preset,0.08759115853173544,56,Properties
+trades_14,0.0819401375672353,57,transaction_cost
+PantryItemIDs,0.08182430841618642,58,Price
+z_id_tables_licensed_batch168_players,0.07776385925546177,59,rprice
+z_id_tables_licensed_batch170_players,0.07445936670042154,60,rprice
+pilot4_RT_stats,0.06709513125245871,61,median_rt
+z_id_tables_licensed_pilot4_RT_stats,0.06709513125245871,62,median_rt
+data_gustos_1,0.06674777445941504,63,price_level
+z_object_tables_licensed_experiment0-production-anonymized-results,0.06051426317601626,64,fairprice
+z_running_time_tables_licensed_experiment0-production-anonymized-results-annotated,0.06051426317601626,65,fairprice
+z_dead_air_tables_licensed_2009_acura_mdx_modified,0.059420683289238545,66,rating_value
+z_id_tables_licensed_census_data_1,0.05295498843947894,67,total_price
+results-48.8742606425928-2.36239726027397-52.5,0.052005435989815225,68,Price_level
+z_living_thing_tables_licensed_itunes_data,0.051098749667641864,69,UnitPrice
+z_beats_per_minute_tables_licensed_2009_saturn_vue_modified,0.05010318839200251,70,rating_value
+results-48.88134821-2.334349315-52.5,0.04869159372178801,71,Price_level
+z_channel_capacity_tables_licensed_2009_nissan_frontier_modified,0.04155905322345327,72,rating_value
+final23,0.035318035938752095,73,Tier
+final22,0.035228916751773254,74,Tier
+final1,0.02915803115325538,75,Tier
+z_object_tables_licensed_results_135,0.023086822650019077,76,"""Properties"""
+acs_2013_variables_4,0.017636172873529223,77,median_age
+z_id_tables_licensed_acs_2013_variables_4,0.017636172873529223,78,median_age
+z_dose_rate_tables_licensed_us_states_misc_stats,0.01735572245591355,79,median_age
+z_question_time_tables_licensed_Paraphrase_random,0.011954449187701593,80,avg_score

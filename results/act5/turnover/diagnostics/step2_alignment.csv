@@ -1,0 +1,17 @@
+table_id,src_col,tgt_col,sim,proxy_col
+z_attrition_rate_tables_licensed_test-data,Age,location_age,0.5605,Attrition
+z_attrition_rate_tables_licensed_test-data,DistanceFromHome,distance,0.7695,Attrition
+z_attrition_rate_tables_licensed_test-data,TrainingTimesLastYear,training_score,0.5159,Attrition
+z_attrition_rate_tables_licensed_test-data,YearsAtCompany,time,0.396,Attrition
+z_id_tables_licensed_Raw%20data%20Germany%20Human%20samples_2019_10_24,Age,location_age,0.5605,Employed
+z_id_tables_licensed_Raw%20data%20Germany%20Human%20samples_2019_10_24,SOFA score,logical_score,0.3988,Employed
+z_attrition_rate_tables_licensed_train,﻿Age,location_age,0.5605,Attrition
+z_attrition_rate_tables_licensed_train,DistanceFromHome,distance,0.7695,Attrition
+z_attrition_rate_tables_licensed_train,TrainingTimesLastYear,training_score,0.5159,Attrition
+z_attrition_rate_tables_licensed_train,YearsAtCompany,time,0.396,Attrition
+Raw%20data%20Germany%20Human%20samples,Age,location_age,0.5605,Employed
+Raw%20data%20Germany%20Human%20samples,SOFA score,logical_score,0.3988,Employed
+z_attrition_rate_tables_licensed_test_2,﻿Age,location_age,0.5605,Attrition
+z_attrition_rate_tables_licensed_test_2,DistanceFromHome,distance,0.7695,Attrition
+z_attrition_rate_tables_licensed_test_2,TrainingTimesLastYear,training_score,0.5159,Attrition
+z_attrition_rate_tables_licensed_test_2,YearsAtCompany,time,0.396,Attrition

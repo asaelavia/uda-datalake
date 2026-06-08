@@ -1,0 +1,7 @@
+table_id,proxy_col,direction,thresh_method,binarize_thresh,n_rows,positive_rate,kept,reason,proxy_quality
+Raw%20data%20Germany%20Human%20samples,Heart Failure,POSITIVE,otsu,0.25,33,0.18181818181818182,True,,0.8636
+z_id_tables_licensed_Instrument%20Universe,risk-score,POSITIVE,otsu,4.0625,40,0.55,True,,0.9325
+z_id_tables_licensed_Raw%20data%20Germany%20Human%20samples,Heart Failure,POSITIVE,otsu,0.25,33,0.18181818181818182,False,duplicate,
+z_id_tables_licensed_Raw%20data%20Germany%20Human%20samples_2019_10_24,Heart Failure,POSITIVE,otsu,0.25,33,0.18181818181818182,True,,0.8636
+z_id_tables_licensed_Raw%20data%20Germany%20Human%20samples_2019_10_24_1,Heart Failure,POSITIVE,otsu,0.25,33,0.18181818181818182,False,duplicate,
+z_parent_tables_licensed_feature,Risk Score,POSITIVE,otsu,1.5,50,0.86,True,,0.78

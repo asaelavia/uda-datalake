@@ -1,0 +1,6 @@
+table_id,src_col,tgt_col,sim,proxy_col
+z_quick_time_tables_licensed_turkish,saturated-fat,high_cholesterol,0.4223,fat
+z_quick_time_tables_licensed_turkish,sugar,diabetes,0.5965,fat
+z_whole_tables_licensed_CerealsSanitized,sugars,diabetes,0.5105,fat
+z_whole_tables_licensed_Cereal_Data_1,Sugars,diabetes,0.5105,Fat
+z_dose_rate_tables_licensed_us_states_misc_stats,covid_deaths_over_flu_deaths,coronary_heart_disease,0.3583,obesity_rate

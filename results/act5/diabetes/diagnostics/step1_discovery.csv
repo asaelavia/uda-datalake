@@ -1,0 +1,5 @@
+table_id,discovery_score,rank,proxy_col
+z_id_tables_licensed_sample_1136,0.513405882767517,1,Diabetic
+z_respiratory_rate_tables_licensed_10094_episode1_timeseries,0.1659177040905597,2,Glucose
+z_respiratory_rate_tables_licensed_10266_episode1_timeseries,0.11409605009301721,3,Glucose
+z_respiratory_rate_tables_licensed_10616_episode1_timeseries,0.07324437286660511,4,Glucose

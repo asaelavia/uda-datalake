@@ -1,0 +1,7 @@
+table_id,proxy_col,n_rows,n_aligned_cols,self_auc,discovery_score
+z_id_tables_licensed_Hosp_Network_geocoded,stroke_unit,35,1,0.946,0.4605
+Atl%C3%A9tico-GO_15,CV,34,1,0.7417,0.1835
+z_time_interval_tables_licensed_Simon%20R%20Gronow,Total Strokes,212,1,0.6411,0.3218
+Atl%C3%A9tico-GO_14,CV,34,1,0.6,0.1835
+z_running_time_tables_licensed_Rach%20Madden,Total Strokes,163,1,0.569,0.3331
+Bragantino_12,CV,34,1,0.525,0.1957

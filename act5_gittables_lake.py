@@ -602,6 +602,702 @@ def _standardize_per_dataset(df: pd.DataFrame, num_cols: list[str]) -> pd.DataFr
     return df
 
 
+def _augment_post_alignment(
+    aligned: dict[str, pd.DataFrame],
+    col_mappings: dict[str, dict[str, tuple[str, float]]],
+    labeled_lake: dict[str, pd.DataFrame],
+    target_features: pd.DataFrame,
+    encoder: SentenceTransformer,
+    target_label: str = "",
+    min_key_sim: float = 0.70,
+    min_coverage: float = 0.45,
+    max_new_cols: int = 6,
+    min_sources: int = 1,
+    min_domain_sim: float = 0.40,
+    n_bins: int = 8,
+) -> tuple[dict[str, pd.DataFrame], pd.DataFrame]:
+    """Post-alignment join augmentation — no re-alignment required.
+
+    For each aligned source, find high-confidence join keys (sim ≥ min_key_sim).
+    Aggregate the source's orphan numeric columns (not in mapping) by quantile-
+    binned join-key values.  Add the aggregated statistics to BOTH the aligned
+    source DataFrame and the target using the corresponding target-side key.
+
+    Because source and target get identical aggregated values per key-bin, domain
+    shift on these columns is zero by construction — but they still add predictive
+    signal (e.g. mean HR income by age-group helps predict census income).
+
+    Returns updated (aligned, target_features); does NOT re-run schema alignment.
+    """
+    from collections import defaultdict
+
+    tgt_cols = list(target_features.columns)
+    # Include target label name as a reference so income-related orphan columns
+    # (salary, wages, income_32) pass domain relevance even when not in feature names
+    ref_names = tgt_cols + ([target_label] if target_label else [])
+    tgt_embs = encoder.encode(
+        ref_names, convert_to_numpy=True, normalize_embeddings=True
+    )
+
+    # candidates[col_name] = list of (binned_key_series_for_target, agg_values_for_target,
+    #                                  tid, binned_key_series_for_source, src_values)
+    #  simplified: collect (tgt_mapped Series, src_mapped Series, tid) per orphan col
+    cand_tgt: dict[str, list[pd.Series]] = defaultdict(list)
+    cand_src: dict[str, dict[str, pd.Series]] = defaultdict(dict)  # col → {tid → Series}
+
+    for tid, mapping in col_mappings.items():
+        src_df_full = labeled_lake.get(tid)
+        src_df_aligned = aligned.get(tid)
+        if src_df_full is None or src_df_aligned is None:
+            continue
+
+        # High-confidence join keys
+        join_keys = [
+            (src_col, tgt_col, sim)
+            for src_col, (tgt_col, sim) in mapping.items()
+            if sim >= min_key_sim
+            and src_col in src_df_full.columns
+            and tgt_col in target_features.columns
+            and pd.api.types.is_numeric_dtype(src_df_full[src_col])
+            and pd.api.types.is_numeric_dtype(target_features[tgt_col])
+        ]
+        if not join_keys:
+            continue
+
+        # Orphan columns in the full source (not in mapping, not LABEL_COL, numeric)
+        matched_src = set(mapping.keys())
+        orphan_cols = [
+            c for c in src_df_full.columns
+            if c not in matched_src
+            and c != LABEL_COL
+            and c not in tgt_cols
+            and pd.api.types.is_numeric_dtype(src_df_full[c])
+            and src_df_full[c].nunique() > 3
+            and _is_feature_col_name(c)
+        ]
+        if not orphan_cols:
+            continue
+
+        # Use the best join key (highest sim)
+        src_key, tgt_key, _sim = max(join_keys, key=lambda x: x[2])
+
+        # Bin the source key into quantile buckets for coverage on continuous keys
+        src_key_vals = src_df_full[src_key].dropna()
+        try:
+            bin_labels, bin_edges = pd.qcut(
+                src_key_vals, q=n_bins, duplicates="drop", labels=False, retbins=True
+            )
+        except Exception:
+            continue
+
+        # bin_labels: index→bin_number (0..k-1) for non-NaN rows
+        bin_map = dict(zip(src_df_full.index[src_df_full[src_key].notna()], bin_labels))
+
+        # Aggregate orphan columns by bin number
+        src_bins_col = pd.Series(bin_map, name="__bin__")
+        src_for_agg = src_df_full[orphan_cols].join(src_bins_col, how="inner")
+        bin_agg = src_for_agg.groupby("__bin__")[orphan_cols].mean()
+        # bin_agg: index=bin_number, columns=orphan_cols
+
+        # Assign target rows to source bins using source's quantile edges
+        tgt_key_vals = target_features[tgt_key].fillna(float(src_key_vals.median()))
+        tgt_bins = pd.cut(
+            tgt_key_vals, bins=bin_edges, labels=False, include_lowest=True
+        )
+
+        for oc in orphan_cols:
+            if oc not in bin_agg.columns:
+                continue
+            agg_col = bin_agg[oc]  # Series: bin_number → mean_oc
+
+            # Map target rows via their bin number
+            tgt_mapped = tgt_bins.map(agg_col)
+            coverage = float(tgt_mapped.notna().mean())
+            if coverage < min_coverage:
+                continue
+
+            # Map aligned source rows via their bin number
+            aligned_bins = pd.Series(
+                {i: bin_map.get(i, np.nan) for i in src_df_aligned.index}
+            )
+            src_mapped = aligned_bins.map(agg_col)
+
+            cand_tgt[oc].append(tgt_mapped.values)
+            cand_src[oc][tid] = src_mapped
+
+    if not cand_tgt:
+        logger.info("[PostJoin] no join candidates found (no orphan cols passed key/coverage filters)")
+        return aligned, target_features
+
+    # Domain-relevance filter
+    cand_names = list(cand_tgt.keys())
+    cand_embs = encoder.encode(cand_names, convert_to_numpy=True, normalize_embeddings=True)
+    sim_to_tgt = cand_embs @ tgt_embs.T
+    max_sim_arr = sim_to_tgt.max(axis=1)
+    domain_ok = {
+        n for n, ms in zip(cand_names, max_sim_arr) if ms >= min_domain_sim
+    }
+    logger.debug("[PostJoin] candidates=%d domain_ok=%d (min_domain_sim=%.2f)",
+                 len(cand_names), len(domain_ok), min_domain_sim)
+
+    # Sort by source count
+    sorted_cands = sorted(
+        [(n, arrs) for n, arrs in cand_tgt.items() if n in domain_ok],
+        key=lambda x: -len(x[1]),
+    )
+
+    aug_aligned = {tid: df.copy() for tid, df in aligned.items()}
+    aug_target = target_features.copy()
+    existing = set(target_features.columns)
+    n_added = 0
+
+    for col_name, tgt_arrays in sorted_cands:
+        if n_added >= max_new_cols:
+            break
+        if col_name in existing or len(tgt_arrays) < min_sources:
+            continue
+
+        # Average target values across contributing sources
+        tgt_combined = np.nanmean(np.stack(tgt_arrays, axis=0), axis=0)
+        coverage = float(np.mean(~np.isnan(tgt_combined)))
+        if coverage < min_coverage:
+            continue
+
+        aug_target[col_name] = tgt_combined
+        existing.add(col_name)
+
+        # Add to ALL aligned sources: contributors get real values, others get NaN
+        # (XGBoost handles NaN via its built-in missing-value routing)
+        for tid2 in aug_aligned:
+            if tid2 in cand_src[col_name]:
+                aug_aligned[tid2][col_name] = cand_src[col_name][tid2].values
+            else:
+                aug_aligned[tid2][col_name] = np.nan
+
+        n_added += 1
+        ms_val = float(max_sim_arr[cand_names.index(col_name)])
+        logger.info(
+            "[PostJoin] '%s' — %d source(s), coverage=%.0f%%, domain_sim=%.2f",
+            col_name, len(tgt_arrays), coverage * 100, ms_val,
+        )
+
+    logger.info("[PostJoin] %d new column(s) injected into aligned sources + target", n_added)
+    return aug_aligned, aug_target
+
+
+def _augment_target_via_aligned_joins(
+    col_mappings: dict[str, dict[str, tuple[str, float]]],
+    labeled_lake: dict[str, pd.DataFrame],
+    target_features: pd.DataFrame,
+    encoder: SentenceTransformer,
+    min_key_sim: float = 0.60,
+    min_coverage: float = 0.50,
+    max_new_cols: int = 8,
+    min_sources: int = 2,
+    min_domain_sim: float = 0.35,
+) -> pd.DataFrame:
+    """Augment the target with aggregated statistics from aligned source columns.
+
+    After Step 2 alignment we know which source columns map to which target
+    columns (the 'join keys').  For each aligned key with sim ≥ min_key_sim,
+    we group the source's *unmatched* numeric columns by that key value and
+    compute per-group means.  These are then mapped onto the target using the
+    corresponding target column as a lookup key.
+
+    Unlike regression-based imputation, the joined values are real aggregated
+    observations from the source domain, not predictions derived from existing
+    target features.  A second alignment pass then matches these new target
+    columns to their source counterparts at sim ≈ 1.0, so previously-orphaned
+    source columns now survive the min_similarity threshold.
+    """
+    from collections import defaultdict
+
+    tgt_cols = list(target_features.columns)
+    if not tgt_cols or not col_mappings:
+        return target_features
+
+    # Pre-embed target column names for domain-relevance check
+    tgt_embs = encoder.encode(
+        tgt_cols, convert_to_numpy=True, normalize_embeddings=True
+    )
+
+    # candidates[(orphan_col_name)] -> list of (mapped Series from one source)
+    candidates: dict[str, list[pd.Series]] = defaultdict(list)
+
+    for tid, mapping in col_mappings.items():
+        src_df = labeled_lake.get(tid)
+        if src_df is None:
+            continue
+
+        # Find high-confidence join keys for this source
+        join_keys = [
+            (src_col, tgt_col)
+            for src_col, (tgt_col, sim) in mapping.items()
+            if sim >= min_key_sim
+            and src_col in src_df.columns
+            and tgt_col in target_features.columns
+            and pd.api.types.is_numeric_dtype(src_df[src_col])
+            and pd.api.types.is_numeric_dtype(target_features[tgt_col])
+        ]
+        if not join_keys:
+            continue
+
+        # Identify orphan columns (not in mapping, numeric, reasonable cardinality)
+        matched_src = set(mapping.keys())
+        orphan_cols = [
+            c for c in src_df.columns
+            if c not in matched_src
+            and c != LABEL_COL
+            and pd.api.types.is_numeric_dtype(src_df[c])
+            and src_df[c].nunique() > 3
+        ]
+        if not orphan_cols:
+            continue
+
+        # For each join key, aggregate orphans and map to target
+        for src_key, tgt_key in join_keys:
+            src_key_vals = src_df[src_key].dropna()
+            tgt_key_vals = target_features[tgt_key]
+
+            # Skip if the key has too many unique values to be a useful groupby key
+            n_groups = src_key_vals.nunique()
+            if n_groups < 2 or n_groups > 200:
+                continue
+
+            agg_df = src_df[[src_key] + orphan_cols].dropna(subset=[src_key])
+            agg = agg_df.groupby(src_key)[orphan_cols].mean()
+
+            for oc in orphan_cols:
+                if oc in target_features.columns:
+                    continue
+                mapped = tgt_key_vals.map(agg[oc])
+                coverage = float(mapped.notna().mean())
+                if coverage < min_coverage:
+                    continue
+                candidates[oc].append(mapped)
+
+    if not candidates:
+        logger.debug("[AlignJoin] no join candidates found")
+        return target_features
+
+    # Domain-relevance filter: new column name must be similar to some target column
+    candidate_names = list(candidates.keys())
+    cand_embs = encoder.encode(
+        candidate_names, convert_to_numpy=True, normalize_embeddings=True
+    )
+    sim_to_tgt = cand_embs @ tgt_embs.T
+    max_sim = sim_to_tgt.max(axis=1)
+    domain_ok = {
+        n for n, ms in zip(candidate_names, max_sim)
+        if ms >= min_domain_sim and _is_feature_col_name(n)
+    }
+
+    # Sort by source count (more sources = more reliable aggregate)
+    sorted_cands = sorted(
+        [(n, sl) for n, sl in candidates.items() if n in domain_ok],
+        key=lambda x: -len(x[1]),
+    )
+
+    augmented = target_features.copy()
+    existing = set(target_features.columns)
+    n_added = 0
+
+    for col_name, series_list in sorted_cands:
+        if n_added >= max_new_cols:
+            break
+        if col_name in existing or len(series_list) < min_sources:
+            continue
+        combined = pd.concat(series_list, axis=1).mean(axis=1)
+        coverage = float(combined.notna().mean())
+        if coverage < min_coverage:
+            continue
+        augmented[col_name] = combined.values
+        existing.add(col_name)
+        n_added += 1
+        logger.info(
+            "[AlignJoin] '%s' — %d source(s), coverage=%.0f%%, domain_sim=%.2f",
+            col_name, len(series_list), coverage * 100,
+            float(max_sim[candidate_names.index(col_name)]),
+        )
+
+    logger.info("[AlignJoin] %d new column(s) added to target", n_added)
+    return augmented
+
+
+def _augment_target_with_orphans(
+    col_mappings: dict[str, dict[str, tuple[str, float]]],
+    labeled_lake: dict[str, pd.DataFrame],
+    target_features: pd.DataFrame,
+    encoder: SentenceTransformer,
+    min_sources: int = 2,
+    min_r2: float = 0.10,
+    max_new_cols: int = 8,
+    cluster_sim_threshold: float = 0.72,
+) -> pd.DataFrame:
+    """Predict orphan (unmatched) source columns for the target and add them as new target columns.
+
+    After Step 2 alignment, sources often have numeric columns below min_similarity
+    ("orphans"). When multiple sources share a semantically similar orphan column AND
+    it can be predicted from already-aligned features (R² ≥ min_r2), we train a Ridge
+    regressor (source-only normalisation — no target fitting) and predict those values
+    for the target rows.  A second align_all pass with the augmented target then matches
+    those columns at sim≈1.0 instead of discarding them.
+    """
+    from sklearn.linear_model import Ridge
+    from sklearn.preprocessing import QuantileTransformer
+
+    tgt_cols = list(target_features.columns)
+    if not tgt_cols or not col_mappings:
+        return target_features
+
+    # --- 1. Collect orphan columns (numeric, >3 unique values, not matched) ---
+    orphan_records: list[tuple[str, str]] = []  # (tid, orphan_col_name)
+    for tid, mapping in col_mappings.items():
+        src_df = labeled_lake.get(tid)
+        if src_df is None:
+            continue
+        matched_src = set(mapping.keys())
+        for col in src_df.columns:
+            if col == LABEL_COL or col in matched_src:
+                continue
+            s = src_df[col].dropna()
+            if not pd.api.types.is_numeric_dtype(s):
+                continue
+            if s.nunique() < 4 or len(s) < 20:
+                continue
+            orphan_records.append((tid, col))
+
+    if not orphan_records:
+        logger.debug("[Augment] no orphan columns found across %d sources", len(col_mappings))
+        return target_features
+
+    # --- 2. Embed orphan names; filter those redundant with existing target columns ---
+    unique_orphan_names = list({col for _, col in orphan_records})
+    orphan_embs = encoder.encode(
+        unique_orphan_names, convert_to_numpy=True, normalize_embeddings=True
+    )
+    name_to_emb: dict[str, np.ndarray] = {
+        n: orphan_embs[i] for i, n in enumerate(unique_orphan_names)
+    }
+
+    tgt_embs = encoder.encode(tgt_cols, convert_to_numpy=True, normalize_embeddings=True)
+    sim_to_tgt = orphan_embs @ tgt_embs.T  # (n_orphans, n_tgt_cols)
+    max_sim_to_tgt = sim_to_tgt.max(axis=1)
+    valid_orphan_names = {
+        n for n, ms in zip(unique_orphan_names, max_sim_to_tgt) if ms < 0.70
+    }
+    orphan_records = [(tid, col) for tid, col in orphan_records if col in valid_orphan_names]
+
+    if not orphan_records:
+        logger.debug("[Augment] all orphan columns too similar to existing target columns")
+        return target_features
+
+    # --- 3. Greedy cluster orphan names at cluster_sim_threshold ---
+    filtered_names = list({col for _, col in orphan_records})
+    filtered_embs = np.array([name_to_emb[n] for n in filtered_names])
+    sim_matrix = filtered_embs @ filtered_embs.T
+
+    clusters: list[tuple[str, list[str]]] = []
+    assigned = [False] * len(filtered_names)
+    for i, name in enumerate(filtered_names):
+        if assigned[i]:
+            continue
+        members = [name]
+        assigned[i] = True
+        for j in range(i + 1, len(filtered_names)):
+            if not assigned[j] and sim_matrix[i, j] >= cluster_sim_threshold:
+                members.append(filtered_names[j])
+                assigned[j] = True
+        clusters.append((name, members))
+
+    # Sort: prefer clusters with more sources (approximate by counting records)
+    def _cluster_source_count(canonical_members: list[str]) -> int:
+        mset = set(canonical_members)
+        return len({tid for tid, col in orphan_records if col in mset})
+
+    clusters.sort(key=lambda x: _cluster_source_count(x[1]), reverse=True)
+
+    # --- 4. For each cluster: train Ridge per source, predict on target, average ---
+    augmented = target_features.copy()
+    n_added = 0
+
+    for canonical, members in clusters:
+        if n_added >= max_new_cols:
+            break
+
+        member_set = set(members)
+        cluster_sources = [(tid, col) for tid, col in orphan_records if col in member_set]
+
+        if len(cluster_sources) < min_sources:
+            continue
+
+        predictions: list[np.ndarray] = []
+
+        for tid, col in cluster_sources:
+            src_df = labeled_lake.get(tid)
+            if src_df is None:
+                continue
+            mapping = col_mappings.get(tid, {})
+
+            # Build matched (src_col, tgt_col) pairs in a deterministic order
+            matched_pairs = [
+                (src, tgt)
+                for src, (tgt, _s) in sorted(mapping.items())
+                if tgt in tgt_cols and src in src_df.columns
+            ]
+            if len(matched_pairs) < 2:
+                continue
+
+            src_rename = {src: tgt for src, tgt in matched_pairs}
+            src_feat_cols = [src for src, _ in matched_pairs]
+            tgt_feat_cols = [tgt for _, tgt in matched_pairs]
+
+            src_feats = src_df[src_feat_cols].rename(columns=src_rename)
+            orphan_vals = src_df[col]
+
+            combined = pd.concat(
+                [src_feats, orphan_vals.rename("__orphan__")], axis=1
+            ).dropna()
+            if len(combined) < 20:
+                continue
+
+            avail = [c for c in tgt_feat_cols if c in combined.columns]
+            if len(avail) < 2:
+                continue
+
+            X_src = combined[avail].values.astype(float)
+            y_src = combined["__orphan__"].values.astype(float)
+
+            # Per-source QuantileTransformer — NEVER fit on target
+            n_q = min(1000, max(10, len(X_src)))
+            qt_x = QuantileTransformer(
+                n_quantiles=n_q, output_distribution="normal", random_state=42
+            )
+            X_src_t = qt_x.fit_transform(X_src)
+
+            qt_y = QuantileTransformer(
+                n_quantiles=n_q, output_distribution="normal", random_state=42
+            )
+            y_src_t = qt_y.fit_transform(y_src.reshape(-1, 1)).ravel()
+
+            model = Ridge(alpha=1.0)
+            model.fit(X_src_t, y_src_t)
+
+            r2 = float(model.score(X_src_t, y_src_t))
+            if r2 < min_r2:
+                logger.debug(
+                    "[Augment] tid=%s col=%s R²=%.3f < threshold %.2f — skip",
+                    tid, col, r2, min_r2,
+                )
+                continue
+
+            # Predict on target (apply source-fitted QT to target feature values)
+            missing = [c for c in avail if c not in augmented.columns]
+            if missing:
+                continue
+            X_tgt = augmented[avail].copy()
+            for c in avail:
+                X_tgt[c] = X_tgt[c].fillna(float(augmented[c].median()))
+            X_tgt_t = qt_x.transform(X_tgt.values.astype(float))
+            y_pred_t = model.predict(X_tgt_t)
+            y_pred = qt_y.inverse_transform(y_pred_t.reshape(-1, 1)).ravel()
+            predictions.append(y_pred)
+            logger.debug(
+                "[Augment] tid=%s col=%s R²=%.3f — prediction accepted", tid, col, r2
+            )
+
+        if len(predictions) < min_sources:
+            logger.debug(
+                "[Augment] cluster '%s': only %d/%d sources passed R² gate — skip",
+                canonical, len(predictions), len(cluster_sources),
+            )
+            continue
+
+        pred_arr = np.mean(np.stack(predictions, axis=0), axis=0)
+        augmented[canonical] = pred_arr
+        n_added += 1
+        logger.info(
+            "[Augment] new column '%s' added (cluster=%d names, %d/%d sources passed R² gate)",
+            canonical, len(members), len(predictions), len(cluster_sources),
+        )
+
+    logger.info("[Augment] target augmented with %d new column(s)", n_added)
+    return augmented
+
+
+_ID_LIKE_RE = re.compile(r"^(id|idx|index|row_id|rowid|row_num|rownum|seq|key|pk|uuid|guid)$", re.IGNORECASE)
+
+def _is_feature_col_name(name: str) -> bool:
+    """Return True if the column name looks like a real feature, not a survey question or row ID."""
+    name = name.strip()
+    if len(name) > 60:
+        return False
+    if len(name.split()) > 5:
+        return False
+    if "?" in name or name.endswith("."):
+        return False
+    if _ID_LIKE_RE.match(name):
+        return False
+    return True
+
+
+def _augment_target_with_joins(
+    labeled_lake: dict[str, pd.DataFrame],
+    target_features: pd.DataFrame,
+    encoder: SentenceTransformer,
+    min_jaccard: float = 0.50,
+    min_coverage: float = 0.50,
+    max_new_cols: int = 10,
+    min_domain_sim: float = 0.30,
+) -> pd.DataFrame:
+    """Expand the target schema by joining lake tables on shared categorical keys.
+
+    For each low-cardinality categorical column in the target (≤30 unique values),
+    search all repurposed source tables for columns whose unique value set has high
+    Jaccard overlap.  When found, aggregate the source's numeric columns by that key
+    and left-join into the target.
+
+    The added columns contain real aggregated observations (not predictions), so
+    they are genuinely new features.  After this augmentation, source columns that
+    previously fell below min_similarity=0.35 can now find a match in the expanded
+    target schema and survive alignment.
+
+    Quality gates applied to candidate new columns:
+    - Name must look like a real feature (not a survey question sentence)
+    - Name must be semantically similar to at least one existing target column
+      (cosine ≥ min_domain_sim) — keeps columns relevant to the target domain
+    - ≥ min_coverage of target rows must receive a non-null joined value
+    """
+    from collections import defaultdict
+
+    # --- 1. Identify joinable target columns (categorical, 2–30 unique values) ---
+    tgt_keys: dict[str, frozenset] = {}
+    for col in target_features.columns:
+        s = target_features[col].dropna()
+        n_uniq = s.nunique()
+        if n_uniq < 2 or n_uniq > 30:
+            continue
+        if pd.api.types.is_object_dtype(s):
+            tgt_keys[col] = frozenset(str(v).strip().lower() for v in s.unique())
+        elif pd.api.types.is_numeric_dtype(s) and n_uniq <= 20:
+            tgt_keys[col] = frozenset(s.unique())
+
+    if not tgt_keys:
+        logger.debug("[JoinAugment] no joinable target columns found")
+        return target_features
+
+    # Pre-embed target column names for domain-relevance check
+    tgt_col_names = list(target_features.columns)
+    tgt_col_embs = encoder.encode(
+        tgt_col_names, convert_to_numpy=True, normalize_embeddings=True
+    )  # (n_tgt, dim)
+
+    # --- 2. Scan labeled_lake for columns with high Jaccard overlap to any tgt key ---
+    candidates: dict[tuple[str, str], list[pd.Series]] = defaultdict(list)
+
+    for tid, src_df in labeled_lake.items():
+        src = src_df.drop(columns=[LABEL_COL], errors="ignore")
+        for lake_col in src.columns:
+            sv = src[lake_col].dropna()
+            if len(sv) < 5:
+                continue
+            if pd.api.types.is_object_dtype(sv):
+                lake_vals = frozenset(str(v).strip().lower() for v in sv.unique()
+                                     if isinstance(v, str))
+            elif sv.nunique() <= 30:
+                lake_vals = frozenset(sv.unique())
+            else:
+                continue
+            if len(lake_vals) < 2:
+                continue
+
+            for tgt_col, tgt_vals in tgt_keys.items():
+                inter = len(tgt_vals & lake_vals)
+                union = len(tgt_vals | lake_vals)
+                jaccard = inter / union if union else 0.0
+                if jaccard < min_jaccard:
+                    continue
+
+                # Candidate numeric columns to bring in
+                num_cols = [
+                    c for c in src.columns
+                    if c != lake_col
+                    and pd.api.types.is_numeric_dtype(src[c])
+                    and src[c].nunique() > 3
+                    and c not in target_features.columns
+                    and _is_feature_col_name(c)
+                ]
+                if not num_cols:
+                    continue
+
+                agg = src[[lake_col] + num_cols].copy()
+                if pd.api.types.is_object_dtype(agg[lake_col]):
+                    agg[lake_col] = agg[lake_col].astype(str).str.strip().str.lower()
+                agg = agg.groupby(lake_col)[num_cols].mean()
+
+                tgt_series = target_features[tgt_col]
+                if pd.api.types.is_object_dtype(tgt_series):
+                    tgt_norm = tgt_series.astype(str).str.strip().str.lower()
+                else:
+                    tgt_norm = tgt_series
+
+                for num_col in agg.columns:
+                    mapped = tgt_norm.map(agg[num_col])
+                    coverage = float(mapped.notna().mean())
+                    if coverage < min_coverage:
+                        continue
+                    candidates[(tgt_col, num_col)].append(mapped)
+
+    if not candidates:
+        logger.debug("[JoinAugment] no join candidates passed initial gates")
+        return target_features
+
+    # --- 3. Domain-relevance filter: embed candidate col names, check sim to target ---
+    unique_new_cols = list({num_col for _, num_col in candidates})
+    new_col_embs = encoder.encode(
+        unique_new_cols, convert_to_numpy=True, normalize_embeddings=True
+    )
+    sim_to_tgt = new_col_embs @ tgt_col_embs.T  # (n_new, n_tgt)
+    max_sim = sim_to_tgt.max(axis=1)
+    domain_ok = {
+        name for name, ms in zip(unique_new_cols, max_sim) if ms >= min_domain_sim
+    }
+    candidates = {
+        (tc, nc): sl for (tc, nc), sl in candidates.items() if nc in domain_ok
+    }
+
+    if not candidates:
+        logger.debug("[JoinAugment] all candidates failed domain-relevance gate (min_sim=%.2f)", min_domain_sim)
+        return target_features
+
+    # --- 4. Add to target — sort by source count (more reliable first) ---
+    sorted_candidates = sorted(candidates.items(), key=lambda kv: -len(kv[1]))
+
+    augmented = target_features.copy()
+    existing_cols = set(target_features.columns)
+    n_added = 0
+
+    for (tgt_col, num_col), series_list in sorted_candidates:
+        if n_added >= max_new_cols:
+            break
+        if num_col in existing_cols:
+            continue
+        combined = pd.concat(series_list, axis=1).mean(axis=1)
+        coverage = float(combined.notna().mean())
+        if coverage < min_coverage:
+            continue
+        augmented[num_col] = combined.values
+        existing_cols.add(num_col)
+        n_added += 1
+        logger.info(
+            "[JoinAugment] '%s' (via key '%s') — %d source(s), coverage=%.0f%%",
+            num_col, tgt_col, len(series_list), coverage * 100,
+        )
+
+    logger.info("[JoinAugment] %d new column(s) added to target", n_added)
+    return augmented
+
+
 def _otsu_threshold(vals: np.ndarray) -> float:
     """1D Otsu threshold — maximises between-class variance (minimises within-class variance)."""
     clean = vals[np.isfinite(vals)]
@@ -1640,11 +2336,19 @@ def run_experiment(
     logger.info("[Diag] step1_discovery.csv → %d sources ranked", len(step1_rows))
 
     # ------------------------------------------------------------------ #
+    # Step 2a: Join-based target augmentation (DISABLED — requires full-lake
+    # value-set index to avoid noise from off-domain sources in top-k pool)
+    # _augment_target_with_joins() is implemented but not called until a
+    # MinHash/inverted-index over all 421k tables is built.
+    # ------------------------------------------------------------------ #
+    lake_top_k = {k: labeled_lake[k] for k in top_k_scores}
+
+    # ------------------------------------------------------------------ #
     # Step 2: Schema Alignment
     # ------------------------------------------------------------------ #
     logger.info("=== Step 2: Schema Alignment ===")
-    lake_top_k = {k: labeled_lake[k] for k in top_k_scores}
     _min_sim = 0.35
+    _min_cols = 2
     aligned, col_mappings = schema_alignment.align_all(
         lake=lake_top_k,
         target=target_features,
@@ -1654,16 +2358,44 @@ def run_experiment(
         dist_threshold=DIST_THRESHOLD,
         min_coverage=0.0,
         min_similarity=_min_sim,
+        min_cols=_min_cols,
         fill_unmatched="nan",
         neighbor_alpha=neighbor_alpha,
     )
+    # Intermediate fallback: relax min_cols (1-col matches are still meaningful)
+    # before giving up on the quality similarity threshold entirely.
+    # Targets with few repurposed sources (e.g., heart with 4 tables) benefit from
+    # this: tables whose single matched column has sim ≥ 0.35 contribute as quality
+    # sources rather than being demoted to volume-only.
+    if len(aligned) < min(4, len(lake_top_k)):
+        _min_cols = 1
+        _aligned2, _col_map2 = schema_alignment.align_all(
+            lake=lake_top_k,
+            target=target_features,
+            discovery_scores=top_k_scores,
+            model=encoder,
+            label_col=LABEL_COL,
+            dist_threshold=DIST_THRESHOLD,
+            min_coverage=0.0,
+            min_similarity=_min_sim,
+            min_cols=_min_cols,
+            fill_unmatched="nan",
+            neighbor_alpha=neighbor_alpha,
+        )
+        if len(_aligned2) > len(aligned):
+            logger.info(
+                "min_cols fallback: %d → %d sources (min_cols=2→1, min_similarity=%.2f unchanged)",
+                len(aligned), len(_aligned2), _min_sim,
+            )
+            aligned, col_mappings = _aligned2, _col_map2
     if len(aligned) < 2:
-        # Threshold too strict for this target — fall back to no threshold so the
-        # pipeline can still run (bank, and other targets with weak column overlap).
+        # Final fallback: drop similarity threshold entirely so the pipeline can run.
         logger.warning(
             "min_similarity=%.2f dropped all but %d source(s) — retrying with 0.0",
             _min_sim, len(aligned),
         )
+        _min_sim = 0.0
+        _min_cols = 2
         aligned, col_mappings = schema_alignment.align_all(
             lake=lake_top_k,
             target=target_features,
@@ -1672,10 +2404,73 @@ def run_experiment(
             label_col=LABEL_COL,
             dist_threshold=DIST_THRESHOLD,
             min_coverage=0.0,
-            min_similarity=0.0,
+            min_similarity=_min_sim,
+            min_cols=_min_cols,
             fill_unmatched="nan",
             neighbor_alpha=neighbor_alpha,
         )
+
+    # ------------------------------------------------------------------ #
+    # Volume sources: top-K tables that failed quality alignment.
+    # Re-align with no threshold and use features-only as extra SOURCE-side
+    # domain data for DANN — gives the discriminator more source volume without
+    # polluting the label predictor with noisy pseudo-labels.
+    # ------------------------------------------------------------------ #
+    _quality_tids = set(aligned.keys())
+    _volume_lake_k = {tid: df for tid, df in lake_top_k.items() if tid not in _quality_tids}
+    volume_src_features: Optional[pd.DataFrame] = None
+    if _volume_lake_k:
+        try:
+            _vol_aligned, _ = schema_alignment.align_all(
+                lake=_volume_lake_k,
+                target=target_features,
+                discovery_scores={tid: top_k_scores.get(tid, 0.0) for tid in _volume_lake_k},
+                model=encoder,
+                label_col=LABEL_COL,
+                dist_threshold=float("inf"),
+                min_coverage=0.0,
+                min_similarity=0.0,
+                min_cols=1,
+                fill_unmatched="nan",
+                neighbor_alpha=neighbor_alpha,
+            )
+            _vol_frames = [
+                df.drop(columns=[LABEL_COL], errors="ignore")
+                for df in _vol_aligned.values()
+            ]
+            if _vol_frames:
+                volume_src_features = pd.concat(_vol_frames, ignore_index=True)
+                logger.info(
+                    "[VolumeAug] %d volume sources (%d rows) → DANN SOURCE-side domain discriminator",
+                    len(_vol_frames), len(volume_src_features),
+                )
+        except Exception as _ve:
+            logger.warning("[VolumeAug] Failed to build volume sources: %s", _ve)
+
+    # ------------------------------------------------------------------ #
+    # Step 2b: Post-alignment join augmentation
+    # For each aligned (src_col → tgt_col) pair with sim ≥ 0.60, aggregate
+    # the source's orphan columns by binned join-key value and map to both
+    # the aligned source DataFrame and the target.  No re-alignment needed —
+    # columns are injected directly, preserving all existing matches.
+    # ------------------------------------------------------------------ #
+    if col_mappings:
+        aligned, target_features = _augment_post_alignment(
+            aligned=aligned,
+            col_mappings=col_mappings,
+            labeled_lake=labeled_lake,
+            target_features=target_features,
+            encoder=encoder,
+            target_label=cfg.label_name,
+        )
+        # Keep target_train_df schema consistent — add new cols filled with the
+        # test-set median so dropna() in run_oracle doesn't kill all rows.
+        # Oracle ignores these during training (no variation = no split),
+        # so it has no information leakage while avoiding a feature mismatch.
+        new_aug_cols = [c for c in target_features.columns if c not in target_train_df.columns]
+        for _c in new_aug_cols:
+            _fill = float(target_features[_c].median()) if target_features[_c].notna().any() else 0.0
+            target_train_df[_c] = _fill
 
     # Step 2 diagnostic: actual src_col → tgt_col mapping with similarity scores
     _step2_rows = []
@@ -2083,6 +2878,7 @@ def run_experiment(
                     label_col=LABEL_COL,
                     weight_power=WEIGHT_POWER,
                     unlabeled_features=unlabeled_features if unlabeled_features else None,
+                    volume_src=volume_src_features,
                     random_state=seed,
                 )
             else:

@@ -1,0 +1,17 @@
+table_id,src_col,tgt_col,sim,proxy_col
+z_lead_time_tables_licensed_General%20Traffic%20Engineering%20Request,neighborhood_services_district,locality,0.4132,Property_ID
+z_growth_rate_tables_licensed_s3r1a-Weights,Geographic Presence,locality,0.4475,Low Price
+z_question_time_tables_licensed_issue-list,Multiple countries,sublocality,0.3662,Tax calculation
+Houston,id,type,0.4026,Median Home Value
+z_real_time_tables_licensed_propertydata,beds,beds,1.0,zestimate
+z_real_time_tables_licensed_propertydata,baths,bath,0.8843,zestimate
+z_real_time_tables_licensed_propertydata,pricepersqft,propertysqft,0.4786,zestimate
+z_running_time_tables_licensed_Bicycle%20Issues,neighborhood_services_district,locality,0.4132,Property_ID
+z_lead_time_tables_licensed_Lead_20,neighborhood_services_district,locality,0.4132,Property_ID
+butler_games_2014-2016,line,type,0.3601,home_id
+variableReport_1_Plovdiv,type declared,type,0.6096,type_estimated
+z_half_life_tables_licensed_london_expected,num_beds,beds,0.6578,listing_price
+z_half_life_tables_licensed_london_expected,num_baths,bath,0.6035,listing_price
+z_half_life_tables_licensed_london_expected,distance2,locality,0.3574,listing_price
+z_then_tables_licensed_s5r1a-Weights,Geographic Presence,locality,0.4475,Low Price
+z_id_tables_licensed_Houston,id,type,0.4026,Median Home Value

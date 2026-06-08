@@ -1,0 +1,14 @@
+table_id,src_col,tgt_col,sim,proxy_col
+z_id_tables_licensed_Raw%20data%20Germany%20Human%20samples_2019_10_24,Age,age,1.0,Heart Failure
+z_id_tables_licensed_Raw%20data%20Germany%20Human%20samples_2019_10_24,Diabetes,fasting_blood_sugar,0.5882,Heart Failure
+z_id_tables_licensed_Raw%20data%20Germany%20Human%20samples_2019_10_24,Hypertension,resting_blood_pressure,0.5417,Heart Failure
+z_id_tables_licensed_Raw%20data%20Germany%20Human%20samples_2019_10_24,CKD,thal,0.3714,Heart Failure
+z_id_tables_licensed_Raw%20data%20Germany%20Human%20samples_2019_10_24,Alcohol abuse,sex,0.3557,Heart Failure
+z_id_tables_licensed_Raw%20data%20Germany%20Human%20samples_2019_10_24,Retired,oldpeak,0.3579,Heart Failure
+Raw%20data%20Germany%20Human%20samples,Age,age,1.0,Heart Failure
+Raw%20data%20Germany%20Human%20samples,Diabetes,fasting_blood_sugar,0.5882,Heart Failure
+Raw%20data%20Germany%20Human%20samples,Hypertension,resting_blood_pressure,0.5417,Heart Failure
+Raw%20data%20Germany%20Human%20samples,CKD,thal,0.3714,Heart Failure
+Raw%20data%20Germany%20Human%20samples,Alcohol abuse,sex,0.3557,Heart Failure
+Raw%20data%20Germany%20Human%20samples,Retired,oldpeak,0.3579,Heart Failure
+z_id_tables_licensed_Instrument%20Universe,Price,age,0.3698,risk-score

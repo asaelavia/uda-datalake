@@ -1,0 +1,6 @@
+table_id,proxy_col,n_rows,n_aligned_cols,self_auc,discovery_score
+z_crime_rate_tables_licensed_hate_crimes,hate_crime_rate,51,2,0.95,0.3556
+z_id_tables_licensed_factbook-oceania,death_rate,30,1,0.89,0.1743
+z_crime_rate_tables_licensed_StandardMetropolitanAreasData_train_data,crime_rate,99,1,0.7857,0.2314
+z_half_life_tables_licensed_movies_2020,Crime,360,2,0.6217,0.1898
+z_beauty_sleep_tables_licensed_avaliacoes_usuario_12,Crime,678,3,0.618,0.2652

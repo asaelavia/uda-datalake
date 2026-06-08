@@ -1,0 +1,6 @@
+table_id,discovery_score,rank,proxy_col
+z_attrition_rate_tables_licensed_test-data,0.30842073001222786,1,Attrition
+z_id_tables_licensed_Raw%20data%20Germany%20Human%20samples_2019_10_24,0.2883654419061907,2,Employed
+z_attrition_rate_tables_licensed_train,0.2855895023358194,3,Attrition
+Raw%20data%20Germany%20Human%20samples,0.27317539711696426,4,Employed
+z_attrition_rate_tables_licensed_test_2,0.2645064366690679,5,Attrition

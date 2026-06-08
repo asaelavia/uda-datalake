@@ -1,0 +1,11 @@
+table_id,discovery_score,rank,proxy_col
+z_id_tables_licensed_stest_1,0.27004472415098,1,diagnosis
+z_id_tables_licensed_inpatient_diagnoses2,0.17584356998958742,2,diagnosis_position
+z_id_tables_licensed_test_data_166,0.05968345293995793,3,GradeID
+z_id_tables_licensed_cell_types,0.0554620765993382,4,Cell_class_membership
+z_whole_tables_licensed_boulders_triedLog,0.037246119186737967,5,V Grade
+z_real_time_tables_licensed_boulders_triedLog,0.03686000453991877,6,V Grade
+z_object_tables_licensed_HS.data,0.017165822751151246,7,grade
+z_object_tables_licensed_HS_11,0.01696731407727562,8,grade
+z_parent_tables_licensed_SampleSurveyResults-Grandbend,0.013342597039195936,9,GradeLevel
+Student_102,0.004889876830861203,10,Grade

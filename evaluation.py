@@ -134,7 +134,7 @@ def evaluate(
     df.index.name = "level"
 
     # canonical display order
-    order = ["baseline_a", "baseline_b", "baseline", "llm_zero_shot", "level0", "level2", "level5", "level55", "level6", "ensemble", "source_ensemble", "routed", "oracle"]
+    order = ["baseline_a", "baseline_b", "baseline", "llm_zero_shot", "level0", "level2", "level2_lsc", "level_ot", "level_qbc", "level5", "level55", "level6", "ensemble", "source_ensemble", "routed", "oracle"]
     df = df.reindex([l for l in order if l in df.index])
 
     logger.info("\n%s", df.to_string())

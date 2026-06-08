@@ -1,0 +1,40 @@
+table_id,proxy_col,direction,thresh_method,binarize_thresh,n_rows,positive_rate,kept,reason,proxy_quality
+z_dose_rate_tables_licensed_us_states_misc_stats,obesity_rate,POSITIVE,otsu,0.30561363636363637,51,0.6274509803921569,True,,0.2543
+z_quick_time_tables_licensed_turkish,fat,POSITIVE,otsu,56.315065789473685,119,0.10084033613445378,True,,0.7017
+z_shiva_tables_licensed_009_3,OBESITY MANAGEMENT,NEGATIVE,median_fallback,68.0,46,0.9347826086956522,False,extreme_pos_rate,
+z_shiva_tables_licensed_025_1,OBESITY MANAGEMENT,NEGATIVE,otsu,0.75,79,0.8227848101265823,True,,0.7122
+z_shiva_tables_licensed_025_8,OBESITY MANAGEMENT,NEGATIVE,otsu,19.285714285714285,79,0.8227848101265823,True,,0.5646
+z_shiva_tables_licensed_036_5,OBESITY MANAGEMENT,NEGATIVE,median_fallback,3.5,113,0.9911504424778761,False,extreme_pos_rate,
+z_shiva_tables_licensed_036_6,OBESITY MANAGEMENT,NEGATIVE,median_fallback,58.0,126,0.9920634920634921,False,extreme_pos_rate,
+z_shiva_tables_licensed_allColleges_10,OBESITY MANAGEMENT,NEGATIVE,median_fallback,68.0,46,0.9347826086956522,False,extreme_pos_rate,
+z_whole_tables_licensed_Cereal_Data_1,Fat,POSITIVE,otsu,1.5,77,0.2597402597402597,True,,0.3247
+z_whole_tables_licensed_CerealsSanitized,fat,POSITIVE,otsu,1.5,76,0.2631578947368421,True,,0.3289
+z_whole_tables_licensed_Cereals_2,fat,POSITIVE,otsu,1.5,77,0.2597402597402597,False,concept_cap,
+z_whole_tables_licensed_Cereals_3,fat,POSITIVE,otsu,1.5,77,0.2597402597402597,False,duplicate,
+z_whole_tables_licensed_UScereal_1,fat,POSITIVE,otsu,2.272727275,65,0.23076923076923078,False,concept_cap,
+z_whole_tables_licensed_UScereal_18,fat,POSITIVE,otsu,2.272727275,65,0.23076923076923078,False,duplicate,
+z_whole_tables_licensed_UScereal_19,fat,POSITIVE,otsu,2.272727275,65,0.23076923076923078,False,duplicate,
+z_whole_tables_licensed_UScereal_2,fat,POSITIVE,otsu,2.272727275,65,0.23076923076923078,False,duplicate,
+z_whole_tables_licensed_UScereal_20,fat,POSITIVE,otsu,2.272727275,65,0.23076923076923078,False,duplicate,
+z_whole_tables_licensed_UScereal_7,fat,POSITIVE,otsu,2.272727275,65,0.23076923076923078,False,duplicate,
+z_whole_tables_licensed_UScereal_9,fat,POSITIVE,otsu,2.272727275,65,0.23076923076923078,False,duplicate,
+z_whole_tables_licensed_a1-cereals_21,Fat,POSITIVE,otsu,1.5,77,0.2597402597402597,False,concept_cap,
+z_whole_tables_licensed_a1-cereals_22,Fat,POSITIVE,otsu,1.5,77,0.2597402597402597,False,duplicate,
+z_whole_tables_licensed_a1-cereals_23,Fat,POSITIVE,otsu,1.5,77,0.2597402597402597,False,duplicate,
+z_whole_tables_licensed_a2-cereals,Fat,POSITIVE,otsu,1.5,77,0.2597402597402597,False,duplicate,
+z_whole_tables_licensed_a2-cereals_1,Fat,POSITIVE,otsu,1.5,77,0.2597402597402597,False,duplicate,
+z_whole_tables_licensed_cereal_10,Fat,POSITIVE,otsu,1.125,43,0.2558139534883721,False,concept_cap,
+z_whole_tables_licensed_cereal_108,fat,POSITIVE,otsu,1.5,77,0.2597402597402597,False,concept_cap,
+z_whole_tables_licensed_cereal_43,fat,POSITIVE,otsu,1.5,74,0.22972972972972974,False,concept_cap,
+z_whole_tables_licensed_cereal_67,fat,POSITIVE,otsu,1.5,78,0.2692307692307692,False,concept_cap,
+z_whole_tables_licensed_cereal_70,fat,POSITIVE,otsu,1.5,78,0.2692307692307692,False,duplicate,
+z_whole_tables_licensed_cereal_85,fat,POSITIVE,otsu,2.272727275,65,0.23076923076923078,False,duplicate,
+z_whole_tables_licensed_cereal_copy,fat,POSITIVE,otsu,1.5,77,0.2597402597402597,False,concept_cap,
+z_whole_tables_licensed_cereal_copy_1,fat,POSITIVE,otsu,1.5,77,0.2597402597402597,False,duplicate,
+z_whole_tables_licensed_cereal_data,fat,POSITIVE,otsu,1.5,77,0.2597402597402597,False,concept_cap,
+z_whole_tables_licensed_cereals_14,Fat,POSITIVE,otsu,1.5,77,0.2597402597402597,False,duplicate,
+z_whole_tables_licensed_ethiopian,fat,POSITIVE,otsu,32.08454545454546,57,0.15789473684210525,False,concept_cap,
+z_whole_tables_licensed_foods_curated,fat,POSITIVE,otsu,35.759659090909096,198,0.1111111111111111,False,concept_cap,
+z_whole_tables_licensed_foods_curated2,fat,POSITIVE,otsu,39.61551724137931,189,0.10582010582010581,False,concept_cap,
+z_whole_tables_licensed_nutrition_11,fat,POSITIVE,otsu,37.71428571428571,259,0.04247104247104247,False,concept_cap,
+z_whole_tables_licensed_turkish_3,fat,POSITIVE,otsu,56.315065789473685,119,0.10084033613445378,False,duplicate,

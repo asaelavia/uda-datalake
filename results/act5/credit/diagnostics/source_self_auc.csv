@@ -1,0 +1,4 @@
+table_id,proxy_col,n_rows,n_aligned_cols,self_auc,discovery_score
+z_data_rate_tables_licensed_parameters_28,default,125,2,0.9316,0.2329
+z_id_tables_licensed_people_124,credit_rating,99,4,0.7946,0.5504
+z_data_rate_tables_licensed_RawDataProcessor_params_2,default,116,1,0.6687,0.2325
